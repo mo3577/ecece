@@ -45,12 +45,12 @@ type MainMediaCard struct {
 func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
 	margin := raycss.S(15).Scale(zoom)
 
-	bgHeight := int32(math.Round(float64(screenSize[1])*0.65)) - int32(margin.V())
+	bgHeight := int32(math.Round(float64(screenSize[1])*contentBandFrac)) - int32(margin.V())
 	bgWidth := int32(math.Round(float64(bgHeight) * 1.454))
 
-	secH := int32(math.Round(float64(screenSize[1]) * 0.65 * 0.55))
+	secH := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
 	bgX := float32(math.Round(float64(secH)*1.454)) + margin.H()
-	bgY := float32(math.Round(float64(screenSize[1])*0.3)) + margin.Top
+	bgY := float32(math.Round(float64(screenSize[1])*tableBandFrac)) + margin.Top
 
 	mc := &MainMediaCard{
 		BgRect: rl.Rectangle{

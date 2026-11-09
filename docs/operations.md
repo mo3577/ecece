@@ -2,6 +2,8 @@
 
 _Last updated: 2026-11-09_
 
+
+
 ## Makefile (preferred)
 
 `make` shows a menu (TUI helpers in `scripts/tui.sh`; honours `NO_COLOR`). `make build` / `make run` first detect a fresh clone (missing `.build/deps.stamp`, or `go.mod`/`go.sum` newer), run a system-dependency check (`make doctor`) and `go mod download`, then build `./ECE-screen`. `make test` = `go vet` + `gofmt -l` check + `go test ./...`. Also: `setup`, `deps`, `labwc`, `vet`, `fmt`, `clean`, `distclean`.
@@ -33,7 +35,7 @@ Unit tests exist for `lib/fonts` (`Reshape`), `lib/emoji` (`Split`, nil atlas) a
 | Var | Default | Notes |
 |---|---|---|
 | `FPS` | 60 | positive int |
-| `ZOOM` | 1.0 | float > 0; invalid values are logged and ignored |
+| `ZOOM` | 1.2 | float > 0; invalid values are logged and ignored |
 | `RL_LOG` | (warnings only) | `info` / `debug` restore raylib's verbose logging (default hides ~3000 emoji-load lines) |
 
 `.env.example` lists these. For kiosk autostart see `deploy/ece-screen.service` (systemd user unit; install steps in its header).

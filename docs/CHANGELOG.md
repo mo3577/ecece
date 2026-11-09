@@ -7,6 +7,7 @@ Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 ## 2026-11-09
 - Main media video: drop the software `lavfi=[scale,pad]` filter that was stuttering 1920×1080 `.mov` playback. Position with mpv `video-margin-ratio-*` + `keepaspect` (GPU path) and enable `hwdec=auto-safe` at play time. `lib/video` / `MpvInit` untouched.
 - Fixed S-06: 500 ms idle grace after `loadfile`, lone video replays via `HandleVideoEnded`, timed image cycling skipped for a single item (no more every-frame cycle after a finished video).
+- UI scale: default `ZOOM` 1.0 → 1.2; content band `0.30/0.65` → `0.28/0.67` (shared layout fractions); professor portrait 42% → 48%; ticker font follows `ZOOM`. Docs: architecture, operations, README, `.env.example`.
 - Docs: components, architecture, suggestions, AGENTS.md.
 
 ## 2026-10-24 (eleventh update)

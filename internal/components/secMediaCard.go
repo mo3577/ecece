@@ -47,11 +47,11 @@ type SecondaryMediaCard struct {
 func GetSecMediaLayout(screenSize [2]int32, zoom float64) *SecondaryMediaCard {
 	margin := raycss.S(15).Scale(zoom)
 
-	bgHeight := int32(math.Round(float64(screenSize[1]) * 0.65 * 0.55))
+	bgHeight := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
 	bgWidth := int32(math.Round(float64(bgHeight) * 1.454))
 
 	bgX := margin.Left
-	bgY := float32(screenSize[1])*0.95 - float32(bgHeight) - margin.Bottom
+	bgY := float32(screenSize[1])*tickerTopFrac - float32(bgHeight) - margin.Bottom
 
 	sm := &SecondaryMediaCard{
 		BgRect: rl.Rectangle{

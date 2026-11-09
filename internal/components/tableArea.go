@@ -23,6 +23,14 @@ import (
 const (
 	cardRadius = float32(10)
 	shadowSegs = int32(8)
+
+	// Screen-height fractions (16:9 board). Content band is a touch taller than
+	// the original 0.30 / 0.65 split so media cards and portraits read larger
+	// from viewing distance; pair with default ZOOM=1.2 for text.
+	tableBandFrac   = 0.28 // schedule strip height / content Y start
+	contentBandFrac = 0.67 // professors + media + notices vertical span
+	secMediaFrac    = 0.55 // secondary media height as a fraction of contentBandFrac
+	tickerTopFrac   = 0.95 // secondary media bottom-aligns above the ticker
 )
 
 var arabicDays = [7]string{
@@ -98,7 +106,7 @@ func GetTableLayout(screenSize [2]int32, zoom float64) *TableLayout {
 
 	padding := int32(math.Round(15 * zoom))
 	stageW := int32(math.Round(float64(screenSize[0]-padding*5) / 4))
-	stageH := int32(math.Round(float64(screenSize[1])*0.3)) - padding
+	stageH := int32(math.Round(float64(screenSize[1])*tableBandFrac)) - padding
 
 	for i := range 4 {
 		x := padding + (padding+stageW)*int32(i)

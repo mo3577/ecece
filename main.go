@@ -76,12 +76,13 @@ func main() {
 		int32(rl.GetScreenWidth()),
 		int32(rl.GetScreenHeight()),
 	}
-	zoom := 1.0
+	const defaultZoom = 1.2
+	zoom := defaultZoom
 	if v := os.Getenv("ZOOM"); v != "" {
 		if parsed, err := strconv.ParseFloat(v, 64); err == nil && parsed > 0 {
 			zoom = parsed
 		} else {
-			log.Printf("ignoring invalid ZOOM=%q (need a number > 0); using 1.0", v)
+			log.Printf("ignoring invalid ZOOM=%q (need a number > 0); using %g", v, defaultZoom)
 		}
 	}
 

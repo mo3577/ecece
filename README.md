@@ -104,11 +104,11 @@ Press **X** to exit the application.
 | Variable | Default | Description |
 |---|---|---|
 | `FPS` | `60` | Target render frame rate |
-| `ZOOM` | `1.0` | Global UI scale factor |
+| `ZOOM` | `1.2` | Global UI scale factor (text / padding / radii) |
 
 Example:
 ```bash
-FPS=30 ZOOM=1.25 go run .
+FPS=30 ZOOM=1.35 go run .
 ```
 
 ---

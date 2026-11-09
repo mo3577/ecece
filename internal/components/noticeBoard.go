@@ -86,9 +86,9 @@ type NoticeBoard struct {
 func GetNoticeBoardLayout(screenSize [2]int32, zoom float64) *NoticeBoard {
 	pad := int32(math.Round(15 * zoom))
 
-	secH := int32(math.Round(float64(screenSize[1]) * 0.65 * 0.55))
+	secH := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
 	leftColW := int32(math.Round(float64(secH) * 1.454))
-	mainH := int32(math.Round(float64(screenSize[1])*0.65)) - pad*2
+	mainH := int32(math.Round(float64(screenSize[1])*contentBandFrac)) - pad*2
 	mainW := int32(math.Round(float64(mainH) * 1.454))
 
 	// left-margin + leftCol + gap + mainMedia + right-margin = start of notice board
@@ -99,7 +99,7 @@ func GetNoticeBoardLayout(screenSize [2]int32, zoom float64) *NoticeBoard {
 	nb := &NoticeBoard{
 		BgRect: rl.Rectangle{
 			X:      bgX,
-			Y:      float32(math.Round(float64(screenSize[1])*0.3)) + float32(pad),
+			Y:      float32(math.Round(float64(screenSize[1])*tableBandFrac)) + float32(pad),
 			Width:  bgWidth,
 			Height: float32(bgHeight),
 		},

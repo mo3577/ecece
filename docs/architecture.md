@@ -46,14 +46,16 @@ Rendering optimisation: each card draws into its own `MaskContainer` only when `
 
 ## Screen layout (fractions of screen H, `pad = 15*zoom`)
 
+Shared constants in `tableArea.go`: `tableBandFrac=0.28`, `contentBandFrac=0.67`, `secMediaFrac=0.55`, `tickerTopFrac=0.95`. Default `ZOOM=1.2`.
+
 | Region | Position / size |
 |---|---|
-| Table (4 stage cards) | y=pad, h=0.30H−pad; 4 equal cards across width. Stage 4 is leftmost, stage 1 rightmost (RTL) |
-| Professors board | x=pad, y=0.30H+pad, w=`secH*1.454`, h=`0.65H − secH − 3pad` where `secH = 0.65*0.55*H` |
-| Secondary media | x=pad, bottom-aligned at 0.95H−pad, size `secH*1.454 × secH` |
-| Main media | x=`secH*1.454 + pad`, y=0.30H+pad, h=`0.65H−2pad`, w=`h*1.454` |
+| Table (4 stage cards) | y=pad, h=`tableBandFrac*H−pad`; 4 equal cards across width. Stage 4 is leftmost, stage 1 rightmost (RTL) |
+| Professors board | x=pad, y=`tableBandFrac*H+pad`, w=`secH*1.454`, h=`contentBandFrac*H − secH − 3pad` where `secH = contentBandFrac*secMediaFrac*H`; portrait ≈ 48% of board height |
+| Secondary media | x=pad, bottom-aligned at `tickerTopFrac*H−pad`, size `secH*1.454 × secH` |
+| Main media | x=`secH*1.454 + pad`, y=`tableBandFrac*H+pad`, h=`contentBandFrac*H−2pad`, w=`h*1.454` |
 | Notice board | x=`pad+leftColW+pad+mainW+pad` to screen right−pad, same y/h as main media |
-| Ticker | bottom 5% of H, full width |
+| Ticker | bottom 5% of H, full width; font size scales with `ZOOM` (capped at 90% of bar height) |
 
 `1.454` is a hard-coded media aspect ratio. Layout is computed once at start; window resize is not handled.
 

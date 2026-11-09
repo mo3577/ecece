@@ -2,7 +2,7 @@
 
 _Last updated: 2026-11-09_
 
-All components live in package `components`. Shared constants in `tableArea.go`: `cardRadius=10`, `shadowSegs=8`. Shared helpers: `loadTexture(path)` in `noticeBoard.go` (decodes via Go `image` — jpeg/png/gif — and uploads RGBA to GPU), `isVideo(path)` in `secMediaCard.go` (extension check).
+All components live in package `components`. Shared constants in `tableArea.go`: `cardRadius=10`, `shadowSegs=8`, layout fractions `tableBandFrac=0.28`, `contentBandFrac=0.67`, `secMediaFrac=0.55`, `tickerTopFrac=0.95`. Shared helpers: `loadTexture(path)` in `noticeBoard.go` (decodes via Go `image` — jpeg/png/gif — and uploads RGBA to GPU), `isVideo(path)` in `secMediaCard.go` (extension check).
 
 Common fields: `BgRect`, `Mask raycss.MaskContainer`, `mu sync.RWMutex`, `dirty atomic.Bool`, `data`, `currentIdx`, `lastSwitch`, `Alpha` (0→255 fade-in, driven at 510/s ≈ 0.5 s), `loadedPath/currentTex/hasTexture` (single cached GPU texture).
 
