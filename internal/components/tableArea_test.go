@@ -2,6 +2,42 @@ package components
 
 import "testing"
 
+func TestSectionMatches(t *testing.T) {
+	lectureA := classStruct{Section: "A", IsExam: false}
+	lectureB := classStruct{Section: "B", IsExam: false}
+	lectureEve := classStruct{Section: "مسائي", IsExam: false}
+	examA := classStruct{Section: "A", IsExam: true}
+	examB := classStruct{Section: "B", IsExam: true}
+	examEve := classStruct{Section: "مسائي", IsExam: true}
+
+	cases := []struct {
+		name string
+		lec  classStruct
+		key  string
+		want bool
+	}{
+		{"lecture A in A", lectureA, "A", true},
+		{"lecture A not in B", lectureA, "B", false},
+		{"lecture B in B", lectureB, "B", true},
+		{"lecture evening only", lectureEve, "مسائي", true},
+		{"lecture evening not in A", lectureEve, "A", false},
+		{"exam A in A", examA, "A", true},
+		{"exam A also in B", examA, "B", true},
+		{"exam A not in evening", examA, "مسائي", false},
+		{"exam B in A", examB, "A", true},
+		{"exam B in B", examB, "B", true},
+		{"exam B not in evening", examB, "مسائي", false},
+		{"exam evening only", examEve, "مسائي", true},
+		{"exam evening not in A", examEve, "A", false},
+		{"exam evening not in B", examEve, "B", false},
+	}
+	for _, tc := range cases {
+		if got := sectionMatches(tc.lec, tc.key); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestParse12HourTime(t *testing.T) {
 	good := map[string][2]int{ // input -> hour, minute
 		"08:00 AM":   {8, 0},

@@ -1,8 +1,8 @@
 # Data model (PocketBase)
 
-_Last updated: 2026-10-24_
+_Last updated: 2026-11-09_
 
-DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `http://localhost:8090/_/`. Collections are **created automatically** on startup by `internal/db/schema.go` (`EnsureSchema`): any missing collection is created with its fields and filled with example records (Schedules for today, 2 ticker messages, 2 professors, 2 notices, 2 generated placeholder PNGs in Media). Existing collections/data are never modified. Rules are left superuser-only (the app reads through the in-process API). When you change a field in code, update `schema.go` too.
+DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `http://localhost:8090/_/`. Collections are **created automatically** on startup by `internal/db/schema.go` (`EnsureSchema`): any missing collection is created with its fields and filled with example records (Schedules for today, 2 ticker messages, 2 professors, 2 notices, 2 generated placeholder PNGs in Media). Existing collections are not recreated; additive field migrations (currently `Schedules.is_exam`) still run. Rules are left superuser-only (the app reads through the in-process API). When you change a field in code, update `schema.go` too.
 
 | Collection | Field | Type | Notes |
 |---|---|---|---|
@@ -11,6 +11,7 @@ DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `h
 | | `section` | text | `A`, `B`, `مسائي` |
 | | `subject`, `hall` | text | hall is rendered as `قاعة <hall>` |
 | | `start_time`, `end_time` | text | 12-hour `03:04 PM` (Go layout `"03:04 PM"`, zero-padded hour). Parse failure silently yields zero time |
+| | `is_exam` | bool | Exam row: warm highlight + `امتحان` badge. If `section` is `A` or `B`, the exam is shown in **both** morning columns; if `مسائي`, only under the evening column. Regular lectures still match their section exactly. |
 | `TickerBar` | `text` | text | one message per record; order = DB default |
 | `Professors` | `name`, `role`, `bio` | text | role is upper-cased on display; Latin layout |
 | | `image` | file | |

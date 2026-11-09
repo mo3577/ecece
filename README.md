@@ -121,13 +121,14 @@ Holds the per-stage lecture schedule.
 
 | Field | Type | Notes |
 |---|---|---|
-| `day` | string | Arabic weekday name (e.g. `الأحد`) |
+| `day` | string | Arabic weekday name (e.g. `الاحد`, no hamza) |
 | `stage` | number | 1–4 |
 | `section` | string | `"A"`, `"B"`, or `"مسائي"` |
 | `subject` | string | Subject name (Arabic or Latin) |
 | `hall` | string | Room/hall identifier |
 | `start_time` | string | 12-hour format, e.g. `"08:00 AM"` |
 | `end_time` | string | 12-hour format, e.g. `"10:00 AM"` |
+| `is_exam` | bool | Highlight as exam. `A`/`B` → both morning sections; `مسائي` → evening only |
 
 ### `TickerBar`
 

@@ -44,6 +44,13 @@ var (
 	shapedSectionB   = lib.Reshape("شعبةB ")
 	shapedEvening    = lib.Reshape("الدراسة المسائية")
 	shapedNoLectures = lib.Reshape("لا يوجد")
+	shapedExamBadge  = lib.Reshape("امتحان")
+)
+
+// Exam highlight colours (warm accent on the cool board palette).
+var (
+	examBg     = rl.NewColor(255, 243, 224, 255)
+	examAccent = rl.NewColor(180, 83, 9, 255)
 )
 
 type secDef struct {
@@ -72,6 +79,7 @@ type classStruct struct {
 	StartTimeStr  string
 	StartTime     time.Time
 	EndTime       time.Time
+	IsExam        bool
 }
 
 type TableLayout struct {
@@ -97,6 +105,24 @@ func Parse12HourTime(s string) (time.Time, error) {
 		return t, nil
 	}
 	return time.Parse("3:04 PM", s)
+}
+
+// sectionMatches reports whether a schedule row belongs in the given section column.
+//
+// Exams: section A or B → both morning columns (شعبة A and B); مسائي → evening
+// only. Regular lectures keep exact section equality.
+func sectionMatches(lec classStruct, sectionKey string) bool {
+	if !lec.IsExam {
+		return lec.Section == sectionKey
+	}
+	switch lec.Section {
+	case "مسائي":
+		return sectionKey == "مسائي"
+	case "A", "B":
+		return sectionKey == "A" || sectionKey == "B"
+	default:
+		return lec.Section == sectionKey
+	}
 }
 
 // ── init ───────────────────────────────────────────────────────────────────
@@ -158,6 +184,7 @@ func (l *TableLayout) GetData(pb *pocketbase.PocketBase) error {
 			StartTimeStr:  r.GetString("start_time"),
 			StartTime:     start,
 			EndTime:       end,
+			IsExam:        r.GetBool("is_exam"),
 		})
 	}
 
@@ -262,12 +289,13 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 						raycss.DrawVLine(x0, headerH, H-headerH, raycss.BorderColor)
 					}
 
-					// ── lectures ──────────────────────────────────────────────
+					// ── lectures / exams ──────────────────────────────────────
 					y := headerH + secNameH + cardPad.Top
 					hasAny := false
+					badgeFS := float32(math.Round(16.0 * zoom))
 
 					for _, lec := range data {
-						if lec.Stage != stageNum || lec.Section != sec.key {
+						if lec.Stage != stageNum || !sectionMatches(lec, sec.key) {
 							continue
 						}
 						// skip past lectures
@@ -281,14 +309,7 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 						}
 						hasAny = true
 
-						// time — right-aligned
 						tSz := rl.MeasureTextEx(*font, lec.StartTimeStr, timeFS, 0)
-						rl.DrawTextEx(*font, lec.StartTimeStr,
-							rl.Vector2{X: x0 + secW - cardPad.Right - tSz.X, Y: y},
-							timeFS, 0, blue)
-						y += tSz.Y + 2
-
-						// subject — scale down if too wide, right-aligned
 						subSz := rl.MeasureTextEx(*font, lec.ShapedSubject, subFS, 0)
 						fs := subFS
 						if subSz.X > secW-cardPad.H() {
@@ -300,19 +321,49 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 						if fs != subFS {
 							subSz = rl.MeasureTextEx(*font, lec.ShapedSubject, fs, 0)
 						}
+						hSz := rl.MeasureTextEx(*font, lec.ShapedHall, hallFS, 0)
+
+						blockTop := y - 2
+						blockH := tSz.Y + 2 + subFS + 2 + hallFS + 4
+						if lec.IsExam {
+							rl.DrawRectangle(int32(x0+2), int32(blockTop), int32(secW-4), int32(blockH), examBg)
+							rl.DrawRectangle(int32(x0+2), int32(blockTop), 3, int32(blockH), examAccent)
+						}
+
+						timeColor := blue
+						subjectColor := raycss.TextDark
+						hallColor := raycss.TextMuted
+						if lec.IsExam {
+							timeColor = examAccent
+							subjectColor = examAccent
+							hallColor = examAccent
+							bSz := rl.MeasureTextEx(*font, shapedExamBadge, badgeFS, 0)
+							rl.DrawTextEx(*font, shapedExamBadge,
+								rl.Vector2{X: x0 + cardPad.Left + 4, Y: y + (tSz.Y-bSz.Y)/2},
+								badgeFS, 0, examAccent)
+						}
+
+						// time — right-aligned
+						rl.DrawTextEx(*font, lec.StartTimeStr,
+							rl.Vector2{X: x0 + secW - cardPad.Right - tSz.X, Y: y},
+							timeFS, 0, timeColor)
+						y += tSz.Y + 2
+
+						// subject — scale down if too wide, right-aligned
 						rl.DrawTextEx(*font, lec.ShapedSubject,
 							rl.Vector2{X: x0 + secW - cardPad.Right - subSz.X, Y: y},
-							fs, 0, raycss.TextDark)
+							fs, 0, subjectColor)
 						y += subFS + 2
 
 						// hall — right-aligned
-						hSz := rl.MeasureTextEx(*font, lec.ShapedHall, hallFS, 0)
 						rl.DrawTextEx(*font, lec.ShapedHall,
 							rl.Vector2{X: x0 + secW - cardPad.Right - hSz.X, Y: y},
-							hallFS, 0, raycss.TextMuted)
+							hallFS, 0, hallColor)
 						y += hallFS + 4
 
-						raycss.DrawHLine(x0+cardPad.Left, y, secW-cardPad.H(), raycss.BorderColor)
+						if !lec.IsExam {
+							raycss.DrawHLine(x0+cardPad.Left, y, secW-cardPad.H(), raycss.BorderColor)
+						}
 						y += cardPad.Bottom
 					}
 

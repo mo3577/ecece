@@ -60,6 +60,29 @@ func EnsureSchema(app core.App) error {
 		}
 		log.Printf("db: created collection %q with example data", s.name)
 	}
+
+	// Additive migrations for collections that already existed before a field
+	// was introduced (EnsureSchema never recreates existing collections).
+	if err := ensureSchedulesExamField(app); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ensureSchedulesExamField adds Schedules.is_exam when missing (existing DBs).
+func ensureSchedulesExamField(app core.App) error {
+	c, err := app.FindCollectionByNameOrId(colSchedules)
+	if err != nil || c == nil {
+		return nil
+	}
+	if c.Fields.GetByName("is_exam") != nil {
+		return nil
+	}
+	c.Fields.Add(&core.BoolField{Name: "is_exam"})
+	if err := app.Save(c); err != nil {
+		return fmt.Errorf("add Schedules.is_exam: %w", err)
+	}
+	log.Printf("db: added field is_exam to %q", colSchedules)
 	return nil
 }
 
@@ -89,6 +112,9 @@ func buildSchedules(c *core.Collection) {
 		&core.TextField{Name: "hall"},
 		&core.TextField{Name: "start_time", Required: true}, // "03:04 PM"
 		&core.TextField{Name: "end_time", Required: true},
+		// Exam rows are highlighted; section A or B → show in both morning
+		// columns; مسائي → evening only (see components.sectionMatches).
+		&core.BoolField{Name: "is_exam"},
 	)
 	c.AddIndex("idx_schedules_day", false, "`day`", "")
 }
@@ -96,25 +122,30 @@ func buildSchedules(c *core.Collection) {
 func seedSchedules(app core.App, c *core.Collection) error {
 	today := arabicDays[int(time.Now().Weekday())]
 	// End times are late so the examples stay visible all day (finished lectures are hidden).
-	row := func(stage int, section, subject, hall, start, end string) map[string]any {
+	row := func(stage int, section, subject, hall, start, end string, exam bool) map[string]any {
 		return map[string]any{
 			"day": today, "stage": stage, "section": section,
 			"subject": subject, "hall": hall, "start_time": start, "end_time": end,
+			"is_exam": exam,
 		}
 	}
 	return insert(app, c, []map[string]any{
-		row(1, "A", "الرياضيات", "1", "08:30 AM", "11:30 PM"),
-		row(1, "B", "الفيزياء", "2", "09:30 AM", "11:30 PM"),
-		row(2, "A", "الدوائر الكهربائية", "3", "10:30 AM", "11:30 PM"),
-		row(2, "B", "Digital Logic", "4", "11:30 AM", "11:30 PM"),
-		row(3, "A", "الالكترونيات", "5", "08:30 AM", "11:30 PM"),
-		row(3, "B", "الاشارات والانظمة", "6", "09:30 AM", "11:30 PM"),
-		row(4, "A", "الاتصالات", "7", "10:30 AM", "11:30 PM"),
-		row(4, "B", "السيطرة", "8", "11:30 AM", "11:30 PM"),
-		row(1, "مسائي", "البرمجة", "9", "03:00 PM", "11:30 PM"),
-		row(2, "مسائي", "الحاسبات", "10", "04:00 PM", "11:30 PM"),
-		row(3, "مسائي", "الشبكات", "11", "05:00 PM", "11:30 PM"),
-		row(4, "مسائي", "مشروع التخرج", "12", "06:00 PM", "11:30 PM"),
+		row(1, "A", "الرياضيات", "1", "08:30 AM", "11:30 PM", false),
+		row(1, "B", "الفيزياء", "2", "09:30 AM", "11:30 PM", false),
+		row(2, "A", "الدوائر الكهربائية", "3", "10:30 AM", "11:30 PM", false),
+		row(2, "B", "Digital Logic", "4", "11:30 AM", "11:30 PM", false),
+		row(3, "A", "الالكترونيات", "5", "08:30 AM", "11:30 PM", false),
+		row(3, "B", "الاشارات والانظمة", "6", "09:30 AM", "11:30 PM", false),
+		// Morning exam (section A or B): highlighted in BOTH شعبة A and B.
+		row(3, "A", "منتصف الالكترونيات", "5", "10:30 AM", "11:30 PM", true),
+		row(4, "A", "الاتصالات", "7", "10:30 AM", "11:30 PM", false),
+		row(4, "B", "السيطرة", "8", "11:30 AM", "11:30 PM", false),
+		row(1, "مسائي", "البرمجة", "9", "03:00 PM", "11:30 PM", false),
+		row(2, "مسائي", "الحاسبات", "10", "04:00 PM", "11:30 PM", false),
+		row(3, "مسائي", "الشبكات", "11", "05:00 PM", "11:30 PM", false),
+		// Evening exam: only under الدراسة المسائية.
+		row(3, "مسائي", "منتصف الشبكات", "11", "07:00 PM", "11:30 PM", true),
+		row(4, "مسائي", "مشروع التخرج", "12", "06:00 PM", "11:30 PM", false),
 	})
 }
 
