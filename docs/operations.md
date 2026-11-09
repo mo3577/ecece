@@ -2,8 +2,6 @@
 
 _Last updated: 2026-11-09_
 
-
-
 ## Makefile (preferred)
 
 `make` shows a menu (TUI helpers in `scripts/tui.sh`; honours `NO_COLOR`). `make build` / `make run` first detect a fresh clone (missing `.build/deps.stamp`, or `go.mod`/`go.sum` newer), run a system-dependency check (`make doctor`) and `go mod download`, then build `./ECE-screen`. `make test` = `go vet` + `gofmt -l` check + `go test ./...`. Also: `setup`, `deps`, `labwc`, `vet`, `fmt`, `clean`, `distclean`.
