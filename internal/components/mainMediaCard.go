@@ -37,9 +37,12 @@ type MainMediaCard struct {
 	currentTex rl.Texture2D
 	hasTexture bool
 	IsVideo    bool
-	// videoStartedAt guards against mpv reporting idle-active in the brief
-	// window between loadfile and the first decoded frame (S-06).
+	// videoStartedAt is when loadfile was issued.
 	videoStartedAt time.Time
+	// videoSeenPlaying becomes true once mpv leaves idle after loadfile.
+	// Without this, a large .mov can still look idle after a short grace and
+	// get stopped/cycled before the first frame (video appears "broken").
+	videoSeenPlaying bool
 }
 
 func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
@@ -69,50 +72,71 @@ func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
 }
 
 func (l *MainMediaCard) playVideo(path string) {
-	sw := float64(l.screenSize[0])
-	sh := float64(l.screenSize[1])
-	if sw <= 0 || sh <= 0 {
+	cardW := int32(l.BgRect.Width)
+	cardH := int32(l.BgRect.Height)
+	x := int32(l.BgRect.X)
+	y := int32(l.BgRect.Y)
+	sw := l.screenSize[0]
+	sh := l.screenSize[1]
+	if sw <= 0 || sh <= 0 || cardW <= 0 || cardH <= 0 {
 		return
 	}
 
-	// Position the video inside BgRect with GPU-side margins instead of the
-	// old lavfi=[scale,pad] chain. That filter software-scaled every 1080p
-	// frame to a full-screen canvas and stuttered on .mov / 1920×1080 media.
-	// keepaspect (default) contain-fits inside the remaining area.
-	left := float64(l.BgRect.X) / sw
-	right := (sw - float64(l.BgRect.X+l.BgRect.Width)) / sw
-	top := float64(l.BgRect.Y) / sh
-	bottom := (sh - float64(l.BgRect.Y+l.BgRect.Height)) / sh
-	if left < 0 {
-		left = 0
-	}
-	if right < 0 {
-		right = 0
-	}
-	if top < 0 {
-		top = 0
-	}
-	if bottom < 0 {
-		bottom = 0
+	// Contain-fit the video inside BgRect, then pad onto the fullscreen mpv
+	// window so the punched hole in main.go lines up. Avoid the lavfi=[]
+	// wrapper (extra graph hop that stuttered on 1080p .mov); use a plain
+	// scale+pad chain with fast bilinear instead.
+	drawW, drawH := cardW, cardH
+	offX, offY := int32(0), int32(0)
+	if vw, vh, err := video.Resolution(path); err == nil && vw > 0 && vh > 0 {
+		scale := float64(cardW) / float64(vw)
+		if scaledH := float64(vh) * scale; scaledH > float64(cardH) {
+			scale = float64(cardH) / float64(vh)
+		}
+		drawW = int32(float64(vw) * scale)
+		drawH = int32(float64(vh) * scale)
+		offX = (cardW - drawW) / 2
+		offY = (cardH - drawH) / 2
 	}
 
-	_ = video.Player.SetPropertyString("vf", "")
-	_ = video.Player.SetPropertyString("hwdec", "auto-safe")
-	_ = video.Player.SetPropertyString("keepaspect", "yes")
-	_ = video.Player.SetPropertyString("video-margin-ratio-left", fmt.Sprintf("%g", left))
-	_ = video.Player.SetPropertyString("video-margin-ratio-right", fmt.Sprintf("%g", right))
-	_ = video.Player.SetPropertyString("video-margin-ratio-top", fmt.Sprintf("%g", top))
-	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", fmt.Sprintf("%g", bottom))
+	// Reset any previous GPU-margin attempt so it cannot offset this filter.
+	_ = video.Player.SetPropertyString("video-margin-ratio-left", "0")
+	_ = video.Player.SetPropertyString("video-margin-ratio-right", "0")
+	_ = video.Player.SetPropertyString("video-margin-ratio-top", "0")
+	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", "0")
+	// hwdec=auto-safe can black-screen some .mov/ProRes paths; stay software.
+	_ = video.Player.SetPropertyString("hwdec", "no")
+	vf := fmt.Sprintf("scale=%d:%d:flags=fast_bilinear,pad=%d:%d:%d:%d:black@0",
+		drawW, drawH, sw, sh, x+offX, y+offY)
+	_ = video.Player.SetPropertyString("vf", vf)
 	_ = video.Player.SetPropertyString("fullscreen", "yes")
-	_ = video.Player.Command([]string{"loadfile", path, "replace"})
+	if err := video.Player.Command([]string{"loadfile", path, "replace"}); err != nil {
+		log.Printf("mainmedia loadfile %s: %v", path, err)
+		l.IsVideo = false
+		l.videoSeenPlaying = false
+		return
+	}
 	l.videoStartedAt = time.Now()
+	l.videoSeenPlaying = false
 	l.IsVideo = true
 }
 
-// VideoIdleGrace reports whether loadfile was recent enough that an idle
-// reading should be ignored (mpv can flap idle-active before playback starts).
-func (l *MainMediaCard) VideoIdleGrace() bool {
-	return time.Since(l.videoStartedAt) < 500*time.Millisecond
+// MarkVideoPlaying records that mpv has left idle (first decoded frames).
+func (l *MainMediaCard) MarkVideoPlaying() {
+	l.videoSeenPlaying = true
+}
+
+// ShouldEndVideo is true when idle means the file really finished (or timed
+// out waiting to start), not the idle flap right after loadfile.
+func (l *MainMediaCard) ShouldEndVideo(idle bool) bool {
+	if !l.IsVideo || !idle {
+		return false
+	}
+	if l.videoSeenPlaying {
+		return true
+	}
+	// Still loading: give large files time before giving up.
+	return time.Since(l.videoStartedAt) > 15*time.Second
 }
 
 // HandleVideoEnded runs when mpv becomes idle after a video. A lone video is
@@ -133,6 +157,7 @@ func (l *MainMediaCard) HandleVideoEnded() {
 	}
 
 	l.IsVideo = false
+	l.videoSeenPlaying = false
 	video.Unload()
 	l.loadedPath = ""
 	if n > 1 {

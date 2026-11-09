@@ -137,8 +137,12 @@ func main() {
 			break
 		}
 
-		if mainMedia.IsVideo && !mainMedia.VideoIdleGrace() && video.IsIdle() {
-			mainMedia.HandleVideoEnded()
+		if mainMedia.IsVideo {
+			if !video.IsIdle() {
+				mainMedia.MarkVideoPlaying()
+			} else if mainMedia.ShouldEndVideo(true) {
+				mainMedia.HandleVideoEnded()
+			}
 		}
 
 		rl.BeginDrawing()

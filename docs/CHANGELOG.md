@@ -5,9 +5,10 @@ _Last updated: 2026-11-09_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-09
+- Video playback fix: the `video-margin-ratio` + `hwdec=auto-safe` path could show nothing / die early on .mov. Restored card positioning with `scale=…:flags=fast_bilinear,pad=…` (still no heavy `lavfi=[]` wrapper), `hwdec=no`, and end-of-video detection that waits until mpv has actually left idle (`videoSeenPlaying`) with a 15 s load timeout.
 - Schedules exam mode: new `is_exam` bool (seeded + additive migration for existing DBs). Exam rows are highlighted with a warm strip and `امتحان` badge. Section `A` or `B` shows the exam in both morning columns; `مسائي` shows it only in the evening column. Docs: data-model, components; unit tests for `sectionMatches`.
-- Main media video: drop the software `lavfi=[scale,pad]` filter that was stuttering 1920×1080 `.mov` playback. Position with mpv `video-margin-ratio-*` + `keepaspect` (GPU path) and enable `hwdec=auto-safe` at play time. `lib/video` / `MpvInit` untouched.
-- Fixed S-06: 500 ms idle grace after `loadfile`, lone video replays via `HandleVideoEnded`, timed image cycling skipped for a single item (no more every-frame cycle after a finished video).
+- Main media video (earlier): dropped `lavfi=[scale,pad]` stutter path; later revised again (see above) after field reports of broken playback.
+- Fixed S-06: lone video replays via `HandleVideoEnded`, timed image cycling skipped for a single item (no more every-frame cycle after a finished video).
 - UI scale: default `ZOOM` 1.0 → 1.2; content band `0.30/0.65` → `0.28/0.67` (shared layout fractions); professor portrait 42% → 48%; ticker font follows `ZOOM`. Docs: architecture, operations, README, `.env.example`.
 - Docs: components, architecture, suggestions, AGENTS.md.
 

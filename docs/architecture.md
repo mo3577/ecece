@@ -39,7 +39,7 @@ Rendering optimisation: each card draws into its own `MaskContainer` only when `
 
 ## Render loop order (main.go)
 
-1. exit on `X` key; if `mainMedia.IsVideo && !VideoIdleGrace() && video.IsIdle()` → `HandleVideoEnded()` (replay lone video, else `Unload` + advance playlist)
+1. exit on `X` key; if `mainMedia.IsVideo`: when mpv is not idle → `MarkVideoPlaying()`; when idle and `ShouldEndVideo` → `HandleVideoEnded()` (replay lone video, else `Unload` + advance playlist)
 2. clear to `bgColor` (248,249,250)
 3. draw: table → professors → secMedia → mainMedia → ticker → notice board
 4. if a video is playing, punch a transparent hole over `mainMedia.BgRect` using a custom blend mode (`BlendCustomSeparate`) so the mpv window underneath shows through.
