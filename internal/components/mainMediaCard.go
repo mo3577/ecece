@@ -44,6 +44,10 @@ type MainMediaCard struct {
 
 	videoStartedAt   time.Time
 	videoSeenPlaying bool
+
+	// Windows overlay placement (card-sized mpv HWND on top).
+	overlayX, overlayY int32
+	overlayW, overlayH int32
 }
 
 func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
@@ -82,25 +86,22 @@ func (l *MainMediaCard) playVideo(path string) {
 	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", "0")
 	_ = video.Player.SetPropertyString("hwdec", "no")
 
-	// Fit + letterbox inside the card (no ffprobe required).
-	vfCard := fmt.Sprintf(
-		"scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,"+
-			"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black",
-		cardW, cardH, cardW, cardH,
-	)
-
 	if runtime.GOOS == "windows" {
-		// Windows: layered/OpenGL punch-through is unreliable, so place a
-		// borderless mpv window on top of the card instead of under a hole.
+		// Windows: no GL punch-through — card-sized borderless HWND on top.
+		// Avoid fancy vf (can black-out some libmpv builds); let vo letterbox.
 		win := rl.GetWindowPosition()
 		x := int32(math.Round(float64(win.X + l.BgRect.X)))
 		y := int32(math.Round(float64(win.Y + l.BgRect.Y)))
+		l.overlayX, l.overlayY = x, y
+		l.overlayW, l.overlayH = cardW, cardH
 		_ = video.Player.SetPropertyString("fullscreen", "no")
 		_ = video.Player.SetPropertyString("border", "no")
 		_ = video.Player.SetPropertyString("ontop", "yes")
+		_ = video.Player.SetPropertyString("title", mpvOverlayTitle)
+		_ = video.Player.SetPropertyString("keepaspect", "yes")
+		_ = video.Player.SetPropertyString("vf", "")
 		_ = video.Player.SetPropertyString("window-opacity", "1")
 		_ = video.Player.SetPropertyString("geometry", fmt.Sprintf("%dx%d+%d+%d", cardW, cardH, x, y))
-		_ = video.Player.SetPropertyString("vf", vfCard)
 	} else {
 		rayW := float64(rl.GetScreenWidth())
 		rayH := float64(rl.GetScreenHeight())
@@ -141,6 +142,14 @@ func (l *MainMediaCard) playVideo(path string) {
 		hideMpvOverlay()
 		return
 	}
+	if runtime.GOOS == "windows" {
+		// Re-assert geometry after the vo window exists, then pin HWND topmost.
+		_ = video.Player.SetPropertyString("fullscreen", "no")
+		_ = video.Player.SetPropertyString("geometry",
+			fmt.Sprintf("%dx%d+%d+%d", l.overlayW, l.overlayH, l.overlayX, l.overlayY))
+		_ = video.Player.SetPropertyString("window-opacity", "1")
+		placeMpvOverlay(l.overlayX, l.overlayY, l.overlayW, l.overlayH)
+	}
 	l.videoStartedAt = time.Now()
 	l.videoSeenPlaying = false
 	l.IsVideo = true
@@ -169,12 +178,17 @@ func hideMpvOverlay() {
 	_ = video.Player.SetPropertyString("ontop", "no")
 	_ = video.Player.SetPropertyString("window-opacity", "0")
 	_ = video.Player.SetPropertyString("geometry", "1x1+-32000+-32000")
+	parkMpvOverlay()
 }
 
 // TickVideo advances mpv idle/end-of-file state. Call once per frame from main.
 func (l *MainMediaCard) TickVideo() {
 	if !l.IsVideo {
 		return
+	}
+	if runtime.GOOS == "windows" && l.overlayW > 0 && l.overlayH > 0 {
+		// Keep the overlay pinned; focus changes can drop ontop.
+		placeMpvOverlay(l.overlayX, l.overlayY, l.overlayW, l.overlayH)
 	}
 	if !video.IsIdle() {
 		l.videoSeenPlaying = true

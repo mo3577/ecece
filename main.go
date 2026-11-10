@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 
 	"mt-y0/ECE-screen/internal/components"
@@ -24,6 +25,16 @@ func main() {
 	pb := db.InitPocketBase()
 	video.Player = video.MpvInit()
 	defer video.Player.TerminateDestroy()
+	// Windows cannot punch through OpenGL alpha reliably; park the mpv
+	// window until main-media playVideo places a card-sized overlay.
+	if runtime.GOOS == "windows" {
+		_ = video.Player.SetPropertyString("fullscreen", "no")
+		_ = video.Player.SetPropertyString("border", "no")
+		_ = video.Player.SetPropertyString("ontop", "no")
+		_ = video.Player.SetPropertyString("title", "ECE-screen-mpv")
+		_ = video.Player.SetPropertyString("geometry", "1x1+-32000+-32000")
+		_ = video.Player.SetPropertyString("window-opacity", "0")
+	}
 
 	initRaylib()
 	defer rl.CloseWindow()
@@ -89,7 +100,11 @@ func initRaylib() {
 		logLevel = rl.LogDebug
 	}
 	rl.SetTraceLogLevel(logLevel)
-	rl.SetConfigFlags(rl.FlagWindowTransparent)
+	// Transparent framebuffer + punch-hole works on Linux compositors.
+	// On Windows it leaves a black hole (DWM ignores GL alpha), so stay opaque.
+	if runtime.GOOS != "windows" {
+		rl.SetConfigFlags(rl.FlagWindowTransparent)
+	}
 	rl.InitWindow(0, 0, "ECE screen")
 	rl.HideCursor()
 	rl.SetTargetFPS(int32(envInt("FPS", 60)))
