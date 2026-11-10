@@ -6,7 +6,7 @@ SRC     := $(shell find . -name '*.go' -not -path './pb_data/*') go.mod go.sum
 export GOFLAGS ?= -buildvcs=false
 
 .DEFAULT_GOAL := help
-.PHONY: help setup deps doctor build run labwc test vet fmt clean distclean
+.PHONY: help setup deps doctor build run labwc test vet fmt clean distclean windows-help
 
 help: ## show this menu
 	@$(TUI) banner
@@ -65,3 +65,10 @@ clean: ## remove the binary and build stamp (keeps pb_data)
 
 distclean: clean ## clean + wipe Go build cache for this module
 	@$(TUI) step "🧹" "cleaning go cache" -- go clean -cache
+
+windows-help: ## print Windows build/run instructions
+	@echo "Windows: use PowerShell scripts (this Makefile is for Unix)."
+	@echo "  powershell -ExecutionPolicy Bypass -File scripts/windows/doctor.ps1"
+	@echo "  powershell -ExecutionPolicy Bypass -File scripts/windows/build.ps1"
+	@echo "  powershell -ExecutionPolicy Bypass -File scripts/windows/run.ps1"
+	@echo "Or double-click build.bat / run.bat. See scripts/windows/README.md"

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 Entry point for Claude Code. **This file is an index; the details live in [`docs/`](docs/README.md).** (`AGENTS.md` is the same index for other agents.)
 
@@ -13,6 +13,8 @@ make test   # vet + gofmt + go test; also: make build / make run
 make run                        # fresh clone: installs missing Arch packages + Go modules; needs display + libmpv
 make labwc                      # same, but runs the board inside labwc -S
 ```
+
+Windows: `build.bat` / `run.bat` or `scripts/windows/*.ps1` — see [`scripts/windows/README.md`](scripts/windows/README.md).
 
 ## Where to look
 

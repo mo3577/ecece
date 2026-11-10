@@ -1,6 +1,12 @@
 # Compiled binary
 ECE-screen
+ECE-screen.exe
 /ece-screen
+
+# Local Windows native deps (keep deps/README.txt)
+deps/*.dll
+deps/*.exe
+!deps/README.txt
 
 # Go build cache
 *.test

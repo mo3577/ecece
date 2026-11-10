@@ -13,6 +13,8 @@ go build ./... && go vet ./...   # or: make test (vet + gofmt + go test)
 go run .                         # needs display + libmpv
 ```
 
+Windows (native): `scripts/windows/{doctor,build,run}.ps1` or `build.bat` / `run.bat` — see [`scripts/windows/README.md`](scripts/windows/README.md).
+
 ## Where to look
 
 | Need | Doc |

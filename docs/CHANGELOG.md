@@ -6,6 +6,7 @@ _Last updated: 2026-11-10_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-10
+- Windows support: `scripts/windows/{doctor,build,run}.ps1`, root `build.bat`/`run.bat`, `deploy/ece-screen-windows.bat` kiosk launcher, `deps/README.txt` for libmpv DLL. Docs: operations, README, `scripts/windows/README.md`.
 - Configurable classes/sections: new PocketBase `Stages` + `Sections` collections drive how many class cards appear and which section columns each has (`morning` / `evening` / `all`). Schedule strip rebuilds live; `Schedules.stage` max raised to 20. Docs: data-model, components.
 - Cleanup: shared `layout.go` / `drawutil.go` / `texture.go`; main media video tick+hole moved onto the card (`TickVideo`/`PunchHole`); `main.go` bind/env helpers; contain-fit/fade helpers reused by media cards. Docs: components, architecture.
 

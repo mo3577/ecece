@@ -74,14 +74,33 @@ On Ubuntu/Debian:
 sudo apt install libmpv-dev
 ```
 
+### Windows
+
+Needs Go, MSYS2 MinGW gcc, and a `libmpv` DLL in `deps\`. Full steps: [`scripts/windows/README.md`](scripts/windows/README.md).
+
+```bat
+build.bat
+run.bat
+```
+
+Or PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\doctor.ps1
+powershell -ExecutionPolicy Bypass -File scripts\windows\build.ps1
+powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1
+```
+
+Kiosk autostart: shortcut to `deploy\ece-screen-windows.bat` in the Startup folder (`shell:startup`).
+
 ---
 
 ## Setup & Running
 
 ```bash
 # Clone
-git clone https://github.com/mt-y0/ece-screen.git
-cd ece-screen
+git clone https://github.com/mo3577/ecece.git
+cd ecece
 
 # Build (on Arch this also installs missing system packages)
 make build
@@ -92,6 +111,8 @@ make run
 # Or run it as the only app of a labwc session (quit with X)
 make labwc
 ```
+
+**Windows:** use `build.bat` / `run.bat` (see above).
 
 The PocketBase admin UI is available at **http://localhost:8090/_/** while the app is running. Use it to seed and manage all data.
 
@@ -159,12 +180,22 @@ Additional collections (professors, notices, media) are managed via the PocketBa
 .
 ├── main.go                        # Entry point: init PocketBase, raylib window, render loop
 ├── go.mod / go.sum
+├── build.bat / run.bat            # Windows double-click wrappers
+├── Makefile                       # Linux/macOS build menu
+│
+├── scripts/
+│   ├── tui.sh                     # Makefile helpers (doctor/deps)
+│   └── windows/                   # doctor.ps1, build.ps1, run.ps1
+├── deploy/
+│   ├── ece-screen.service         # Linux kiosk (systemd user)
+│   └── ece-screen-windows.bat     # Windows kiosk (Startup folder)
+├── deps/                          # Place libmpv-*.dll here on Windows
 │
 ├── internal/
 │   ├── db/
 │   │   └── client.go              # Starts embedded PocketBase server
 │   └── components/
-│       ├── tableArea.go           # 4-stage schedule card grid
+│       ├── tableArea.go           # Schedule card grid (Stages/Sections driven)
 │       ├── tickerBar.go           # Scrolling footer
 │       ├── noticeBoard.go         # Arabic notice board
 │       ├── professorsBoard.go     # Professor information board
@@ -179,7 +210,7 @@ Additional collections (professors, notices, media) are managed via the PocketBa
 │   ├── raycss/
 │   │   └── ray.go                 # CSS-like primitives: palette, shadows, MaskContainer, FitText
 │   └── video/
-│       └── video.go               # go-mpv thin wrapper (reserved for future use)
+│       └── video.go               # go-mpv thin wrapper
 │
 └── resources/
     └── fonts/
