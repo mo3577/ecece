@@ -45,23 +45,18 @@ type ProfessorsBoard struct {
 
 func GetProfessorsBoardLayout(screenSize [2]int32, zoom float64) *ProfessorsBoard {
 	margin := raycss.S(15).Scale(zoom)
-
-	secH := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
-	totalH := int32(math.Round(float64(screenSize[1]) * contentBandFrac))
-	bgHeight := totalH - secH - int32(margin.Top)*3
-	bgWidth := int32(math.Round(float64(secH) * 1.454))
+	secH := secMediaHeight(screenSize[1])
+	bgHeight := contentBandHeight(screenSize[1]) - secH - int32(margin.Top)*3
+	bgWidth := mediaWidth(secH)
 
 	imgH := float32(math.Round(float64(bgHeight) * 0.48))
 	imgW := float32(math.Round(float64(imgH) * (118.0 / 148.0)))
 	imgRadius := float32(math.Round(7 * zoom))
 
-	bgX := margin.Left
-	bgY := float32(math.Round(float64(screenSize[1])*tableBandFrac)) + margin.Top
-
 	pb := &ProfessorsBoard{
 		BgRect: rl.Rectangle{
-			X:      bgX,
-			Y:      bgY,
+			X:      margin.Left,
+			Y:      contentTopY(screenSize[1], margin.Top),
 			Width:  float32(bgWidth),
 			Height: float32(bgHeight),
 		},
@@ -193,7 +188,6 @@ func (l *ProfessorsBoard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom floa
 
 	pad := float32(math.Round(20 * zoom))
 	gap := float32(math.Round(15 * zoom))
-	//gap5 := float32(math.Round(6 * zoom))
 
 	if needsRender {
 		// Pre-render image into imgMask BEFORE the card's BeginTextureMode is active.

@@ -1,8 +1,8 @@
 # Components (`internal/components`)
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
-All components live in package `components`. Shared constants in `tableArea.go`: `cardRadius=10`, `shadowSegs=8`, layout fractions `tableBandFrac=0.28`, `contentBandFrac=0.67`, `secMediaFrac=0.55`, `tickerTopFrac=0.95`. Shared helpers: `loadTexture(path)` in `noticeBoard.go` (decodes via Go `image` — jpeg/png/gif — and uploads RGBA to GPU), `isVideo(path)` in `secMediaCard.go` (extension check).
+All components live in package `components`. Shared layout in `layout.go` (`cardRadius`, `shadowSegs`, `mediaAspect=1.454`, band fractions). Shared draw helpers in `drawutil.go` (`containFit`, `stepFade`, `drawContainTexture`). Texture helpers in `texture.go` (`loadTexture`, `isVideo`). Paths in `paths.go`.
 
 Common fields: `BgRect`, `Mask raycss.MaskContainer`, `mu sync.RWMutex`, `dirty atomic.Bool`, `data`, `currentIdx`, `lastSwitch`, `Alpha` (0→255 fade-in, driven at 510/s ≈ 0.5 s), `loadedPath/currentTex/hasTexture` (single cached GPU texture).
 
@@ -12,7 +12,7 @@ Common fields: `BgRect`, `Mask raycss.MaskContainer`, `mu sync.RWMutex`, `dirty 
 | `tickerBar.go` | `TickerBarLayout` | `TickerBar` | Concatenates all `text` fields with ` ~ ` separators, reshaped + emoji-split. Scrolls rightwards at `screenW/30` px/s; the text width is measured once per data change (under the lock). Two copies scroll across exactly one screen width apart (start to start); when one's start reaches the right corner it wraps to the left corner, keeping the distance (period = max(screenW, textW)). Blue bar, white text. |
 | `professorsBoard.go` | `ProfessorsBoard` | `Professors` (sorted `display_order`) | Cycles every fixed 20 s (`profCycleDuration`). Cropped (cover-fit) photo in its own `imgMask`, name / uppercase role / justified bio. Latin text path (no Reshape of whole card; `FitText` reshapes internally). |
 | `secMediaCard.go` | `SecondaryMediaCard` | `Media` where `main_only = false`, images only | Contain-fit image, per-item `duration` (default 10 s). Starts at index 1 so it is out of phase with main media. |
-| `mainMediaCard.go` | `MainMediaCard` | `Media` (all) | Images (contain-fit) or video. Video: `playVideo()` contain-fits via `ffprobe`, sets `vf=scale=…:flags=fast_bilinear,pad=…:black@0` onto the fullscreen mpv window (no `lavfi=[]` wrapper; `hwdec=no` for .mov compatibility), resets margin ratios, sets `IsVideo`. While a video plays the card is white and `main.go` punches a hole for it. End detection waits until mpv has left idle once (`videoSeenPlaying`) — or 15 s load timeout — then `HandleVideoEnded` replays a lone video or advances a multi-item playlist. Timed image cycling is skipped for a single item (S-06). |
+| `mainMediaCard.go` | `MainMediaCard` | `Media` (all) | Images (contain-fit) or video. `playVideo()` contain-fits + `vf=scale/pad` onto fullscreen mpv (`hwdec=no`). `TickVideo()` / `PunchHole()` called from `main`. End after real playback (or 15 s load timeout); lone video replays. |
 | `noticeBoard.go` | `NoticeBoard` | `Notices` (sorted `display_order`) | Header "📢اعلانات القسم", body = optional image (top half, contain-fit) + RTL centred text via `FitText` with `UseEmoji`. Text prefixed with 📌. Per-item `duration` (default 10 s). |
 
 ## Cycling & fade (identical in all rotating cards)

@@ -1,6 +1,6 @@
 # Architecture
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 **ECE-screen** is a fullscreen (60 fps, raylib) department display board: today's lecture schedule, professors, rotating media (images + video), a notice board and a scrolling ticker. Go + raylib-go + embedded PocketBase (SQLite). Module path: `mt-y0/ECE-screen`, Go `1.26.2` (go.mod).
 
@@ -39,10 +39,10 @@ Rendering optimisation: each card draws into its own `MaskContainer` only when `
 
 ## Render loop order (main.go)
 
-1. exit on `X` key; if `mainMedia.IsVideo`: when mpv is not idle → `MarkVideoPlaying()`; when idle and `ShouldEndVideo` → `HandleVideoEnded()` (replay lone video, else `Unload` + advance playlist)
+1. exit on `X` key; `mainMedia.TickVideo()` (end/replay when mpv goes idle after playback has started, or after 15 s load timeout)
 2. clear to `bgColor` (248,249,250)
 3. draw: table → professors → secMedia → mainMedia → ticker → notice board
-4. if a video is playing, punch a transparent hole over `mainMedia.BgRect` using a custom blend mode (`BlendCustomSeparate`) so the mpv window underneath shows through.
+4. `mainMedia.PunchHole()` — transparent hole over `BgRect` so the mpv window underneath shows through
 
 ## Screen layout (fractions of screen H, `pad = 15*zoom`)
 

@@ -1,8 +1,11 @@
 # Changelog
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
+
+## 2026-11-10
+- Cleanup: shared `layout.go` / `drawutil.go` / `texture.go`; main media video tick+hole moved onto the card (`TickVideo`/`PunchHole`); `main.go` bind/env helpers; contain-fit/fade helpers reused by media cards. Docs: components, architecture.
 
 ## 2026-11-09
 - Video playback fix: the `video-margin-ratio` + `hwdec=auto-safe` path could show nothing / die early on .mov. Restored card positioning with `scale=…:flags=fast_bilinear,pad=…` (still no heavy `lavfi=[]` wrapper), `hwdec=no`, and end-of-video detection that waits until mpv has actually left idle (`videoSeenPlaying`) with a 15 s load timeout.

@@ -1,19 +1,11 @@
 package components
 
 import (
-	"image"
-	"image/draw"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 	"log"
 	"math"
-	"os"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"mt-y0/ECE-screen/lib/emoji"
 	lib "mt-y0/ECE-screen/lib/fonts"
@@ -23,42 +15,6 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
-
-// loadTexture decodes any format supported by Go's image package (JPEG, PNG, GIF…)
-// and uploads the pixels to the GPU. This avoids raylib's compile-time format flags.
-func loadTexture(path string) (rl.Texture2D, bool) {
-	f, err := os.Open(path)
-	if err != nil {
-		return rl.Texture2D{}, false
-	}
-	defer f.Close()
-
-	src, _, err := image.Decode(f)
-	if err != nil {
-		return rl.Texture2D{}, false
-	}
-
-	b := src.Bounds()
-	w, h := int32(b.Dx()), int32(b.Dy())
-
-	rgba := image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
-	draw.Draw(rgba, rgba.Bounds(), src, b.Min, draw.Src)
-
-	rlImg := &rl.Image{
-		Data:    unsafe.Pointer(&rgba.Pix[0]),
-		Width:   w,
-		Height:  h,
-		Mipmaps: 1,
-		Format:  rl.UncompressedR8g8b8a8,
-	}
-	tex := rl.LoadTextureFromImage(rlImg)
-	runtime.KeepAlive(rgba) // hold until C upload is done
-
-	if tex.Width == 0 {
-		return rl.Texture2D{}, false
-	}
-	return tex, true
-}
 
 type NoticeItem struct {
 	Id       string
@@ -84,26 +40,22 @@ type NoticeBoard struct {
 }
 
 func GetNoticeBoardLayout(screenSize [2]int32, zoom float64) *NoticeBoard {
-	pad := int32(math.Round(15 * zoom))
+	pad := roundPx(15 * zoom)
+	leftColW := mediaWidth(secMediaHeight(screenSize[1]))
+	mainH := contentBandHeight(screenSize[1]) - pad*2
+	mainW := mediaWidth(mainH)
 
-	secH := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
-	leftColW := int32(math.Round(float64(secH) * 1.454))
-	mainH := int32(math.Round(float64(screenSize[1])*contentBandFrac)) - pad*2
-	mainW := int32(math.Round(float64(mainH) * 1.454))
-
-	// left-margin + leftCol + gap + mainMedia + right-margin = start of notice board
 	bgX := float32(pad + leftColW + pad + mainW + pad)
 	bgWidth := float32(screenSize[0]) - bgX - float32(pad)
-	bgHeight := mainH
 
 	nb := &NoticeBoard{
 		BgRect: rl.Rectangle{
 			X:      bgX,
-			Y:      float32(math.Round(float64(screenSize[1])*tableBandFrac)) + float32(pad),
+			Y:      contentTopY(screenSize[1], float32(pad)),
 			Width:  bgWidth,
-			Height: float32(bgHeight),
+			Height: float32(mainH),
 		},
-		Mask:       raycss.NewMaskContainer(int32(bgWidth), bgHeight, cardRadius*float32(zoom)),
+		Mask:       raycss.NewMaskContainer(int32(bgWidth), mainH, cardRadius*float32(zoom)),
 		lastSwitch: time.Now(),
 		Alpha:      255,
 	}
@@ -224,15 +176,7 @@ func (l *NoticeBoard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float64,
 		l.loadedPath = imgPath
 	}
 
-	// ── alpha fade-in: 0→255 over ~0.5 s ─────────────────────────────────────
-	needsRender := l.dirty.Swap(false)
-	if l.Alpha < 255 {
-		needsRender = true
-		l.Alpha += 510 * rl.GetFrameTime()
-		if l.Alpha > 255 {
-			l.Alpha = 255
-		}
-	}
+	needsRender := l.dirty.Swap(false) || stepFade(&l.Alpha)
 
 	// ── shadow + card ─────────────────────────────────────────────────────────
 	raycss.DrawSoftShadow(l.BgRect, cardRadius*float32(zoom), shadowSegs)
@@ -267,17 +211,9 @@ func (l *NoticeBoard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float64,
 				imgX := bodyPad.Left
 				imgY := bodyY + bodyPad.Top + imgMargin.Top
 
-				// contain-fit: scale to fit within bounds, preserve ratio, centre
-				srcW := float32(l.currentTex.Width)
-				srcH := float32(l.currentTex.Height)
-				scale := imgW / srcW
-				if imgH/srcH < scale {
-					scale = imgH / srcH
-				}
-				drawW := srcW * scale
-				drawH := srcH * scale
-				src := rl.NewRectangle(0, 0, srcW, srcH)
-				dst := rl.NewRectangle(imgX+(imgW-drawW)/2, imgY+(imgH-drawH)/2, drawW, drawH)
+				src := rl.NewRectangle(0, 0, float32(l.currentTex.Width), float32(l.currentTex.Height))
+				fit := containFit(imgW, imgH, src.Width, src.Height)
+				dst := rl.NewRectangle(imgX+fit.X, imgY+fit.Y, fit.Width, fit.Height)
 				rl.DrawTexturePro(l.currentTex, src, dst, rl.Vector2{}, 0, rl.White)
 
 				// text: lower half, VAlign start

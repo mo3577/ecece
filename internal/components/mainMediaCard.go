@@ -3,7 +3,6 @@ package components
 import (
 	"fmt"
 	"log"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,6 +15,8 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
+
+const videoLoadTimeout = 15 * time.Second
 
 type MainMediaItem struct {
 	FilePath string
@@ -37,28 +38,21 @@ type MainMediaCard struct {
 	currentTex rl.Texture2D
 	hasTexture bool
 	IsVideo    bool
-	// videoStartedAt is when loadfile was issued.
-	videoStartedAt time.Time
-	// videoSeenPlaying becomes true once mpv leaves idle after loadfile.
-	// Without this, a large .mov can still look idle after a short grace and
-	// get stopped/cycled before the first frame (video appears "broken").
+
+	videoStartedAt   time.Time
 	videoSeenPlaying bool
 }
 
 func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
 	margin := raycss.S(15).Scale(zoom)
-
-	bgHeight := int32(math.Round(float64(screenSize[1])*contentBandFrac)) - int32(margin.V())
-	bgWidth := int32(math.Round(float64(bgHeight) * 1.454))
-
-	secH := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
-	bgX := float32(math.Round(float64(secH)*1.454)) + margin.H()
-	bgY := float32(math.Round(float64(screenSize[1])*tableBandFrac)) + margin.Top
+	bgHeight := contentBandHeight(screenSize[1]) - int32(margin.V())
+	bgWidth := mediaWidth(bgHeight)
+	secH := secMediaHeight(screenSize[1])
 
 	mc := &MainMediaCard{
 		BgRect: rl.Rectangle{
-			X:      bgX,
-			Y:      bgY,
+			X:      float32(mediaWidth(secH)) + margin.H(),
+			Y:      contentTopY(screenSize[1], margin.Top),
 			Width:  float32(bgWidth),
 			Height: float32(bgHeight),
 		},
@@ -76,16 +70,11 @@ func (l *MainMediaCard) playVideo(path string) {
 	cardH := int32(l.BgRect.Height)
 	x := int32(l.BgRect.X)
 	y := int32(l.BgRect.Y)
-	sw := l.screenSize[0]
-	sh := l.screenSize[1]
+	sw, sh := l.screenSize[0], l.screenSize[1]
 	if sw <= 0 || sh <= 0 || cardW <= 0 || cardH <= 0 {
 		return
 	}
 
-	// Contain-fit the video inside BgRect, then pad onto the fullscreen mpv
-	// window so the punched hole in main.go lines up. Avoid the lavfi=[]
-	// wrapper (extra graph hop that stuttered on 1080p .mov); use a plain
-	// scale+pad chain with fast bilinear instead.
 	drawW, drawH := cardW, cardH
 	offX, offY := int32(0), int32(0)
 	if vw, vh, err := video.Resolution(path); err == nil && vw > 0 && vh > 0 {
@@ -99,12 +88,11 @@ func (l *MainMediaCard) playVideo(path string) {
 		offY = (cardH - drawH) / 2
 	}
 
-	// Reset any previous GPU-margin attempt so it cannot offset this filter.
+	// Clear leftover margins; keep software decode for .mov compatibility.
 	_ = video.Player.SetPropertyString("video-margin-ratio-left", "0")
 	_ = video.Player.SetPropertyString("video-margin-ratio-right", "0")
 	_ = video.Player.SetPropertyString("video-margin-ratio-top", "0")
 	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", "0")
-	// hwdec=auto-safe can black-screen some .mov/ProRes paths; stay software.
 	_ = video.Player.SetPropertyString("hwdec", "no")
 	vf := fmt.Sprintf("scale=%d:%d:flags=fast_bilinear,pad=%d:%d:%d:%d:black@0",
 		drawW, drawH, sw, sh, x+offX, y+offY)
@@ -121,26 +109,31 @@ func (l *MainMediaCard) playVideo(path string) {
 	l.IsVideo = true
 }
 
-// MarkVideoPlaying records that mpv has left idle (first decoded frames).
-func (l *MainMediaCard) MarkVideoPlaying() {
-	l.videoSeenPlaying = true
+// TickVideo advances mpv idle/end-of-file state. Call once per frame from main.
+func (l *MainMediaCard) TickVideo() {
+	if !l.IsVideo {
+		return
+	}
+	if !video.IsIdle() {
+		l.videoSeenPlaying = true
+		return
+	}
+	if l.videoSeenPlaying || time.Since(l.videoStartedAt) > videoLoadTimeout {
+		l.HandleVideoEnded()
+	}
 }
 
-// ShouldEndVideo is true when idle means the file really finished (or timed
-// out waiting to start), not the idle flap right after loadfile.
-func (l *MainMediaCard) ShouldEndVideo(idle bool) bool {
-	if !l.IsVideo || !idle {
-		return false
+// PunchHole clears the card rect so the mpv window underneath shows through.
+func (l *MainMediaCard) PunchHole() {
+	if !l.IsVideo {
+		return
 	}
-	if l.videoSeenPlaying {
-		return true
-	}
-	// Still loading: give large files time before giving up.
-	return time.Since(l.videoStartedAt) > 15*time.Second
+	rl.BeginBlendMode(rl.BlendCustomSeparate)
+	rl.SetBlendFactorsSeparate(0, 0, 0, 0, int32(0x8006), int32(0x8006))
+	rl.DrawRectangleRounded(l.BgRect, 0.03, 8, rl.White)
+	rl.EndBlendMode()
 }
 
-// HandleVideoEnded runs when mpv becomes idle after a video. A lone video is
-// replayed in place; otherwise we stop mpv and advance the playlist once.
 func (l *MainMediaCard) HandleVideoEnded() {
 	l.mu.RLock()
 	n := len(l.data)
@@ -170,7 +163,6 @@ func (l *MainMediaCard) GetData(pb *pocketbase.PocketBase) error {
 	if err != nil {
 		return err
 	}
-
 	records, err := pb.FindRecordsByFilter("Media", "", "+display_order", 500, 0)
 	if err != nil {
 		return err
@@ -182,13 +174,12 @@ func (l *MainMediaCard) GetData(pb *pocketbase.PocketBase) error {
 		if file == "" {
 			continue
 		}
-		filePath := storagePath(pb, col.Id, r.Id, file)
 		dur := r.GetInt("duration")
 		if dur <= 0 {
 			dur = 10
 		}
 		data = append(data, MainMediaItem{
-			FilePath: filePath,
+			FilePath: storagePath(pb, col.Id, r.Id, file),
 			IsVideo:  isVideo(file),
 			Duration: dur,
 		})
@@ -202,7 +193,6 @@ func (l *MainMediaCard) GetData(pb *pocketbase.PocketBase) error {
 	}
 	l.mu.Unlock()
 	l.dirty.Store(true)
-
 	return nil
 }
 
@@ -243,9 +233,7 @@ func (l *MainMediaCard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float6
 	lastSwitch := l.lastSwitch
 	l.mu.RUnlock()
 
-	// Timed image advance only. Videos advance from HandleVideoEnded.
-	// Skip when there is a single item so a lone image does not re-fade
-	// every N seconds and a lone finished video does not cycle every frame (S-06).
+	// Timed images only; videos advance from TickVideo/HandleVideoEnded.
 	if len(data) > 1 && !l.IsVideo && !data[idx].IsVideo {
 		cycleDur := time.Duration(data[idx].Duration) * time.Second
 		if time.Since(lastSwitch) >= cycleDur {
@@ -257,7 +245,6 @@ func (l *MainMediaCard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float6
 		}
 	}
 
-	// load texture / trigger video when the item changes
 	filePath := ""
 	if len(data) > 0 {
 		filePath = data[idx].FilePath
@@ -270,57 +257,25 @@ func (l *MainMediaCard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float6
 		if filePath != "" {
 			if data[idx].IsVideo {
 				l.playVideo(filePath)
-			} else {
-				if tex, ok := loadTexture(filePath); ok {
-					rl.SetTextureFilter(tex, rl.FilterBilinear)
-					l.currentTex = tex
-					l.hasTexture = true
-				}
+			} else if tex, ok := loadTexture(filePath); ok {
+				rl.SetTextureFilter(tex, rl.FilterBilinear)
+				l.currentTex = tex
+				l.hasTexture = true
 			}
 		}
 		l.loadedPath = filePath
 	}
 
-	needsRender := l.dirty.Swap(false)
-	if l.Alpha < 255 {
-		needsRender = true
-		l.Alpha += 510 * rl.GetFrameTime()
-		if l.Alpha > 255 {
-			l.Alpha = 255
-		}
-	}
-
+	needsRender := l.dirty.Swap(false) || stepFade(&l.Alpha)
 	if needsRender {
 		l.Mask.PreRender(rl.White, func() {
-			if len(data) > 0 && data[idx].IsVideo {
-				rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height), rl.White)
+			rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height), rl.White)
+			if len(data) == 0 || data[idx].IsVideo {
+				// Video: white card; main punches a hole so mpv shows through.
 			} else if l.hasTexture {
-				rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height), rl.White)
-				// contain-fit: scale to fit, preserve ratio, center
-				srcW := float32(l.currentTex.Width)
-				srcH := float32(l.currentTex.Height)
-				scale := l.BgRect.Width / srcW
-				if l.BgRect.Height/srcH < scale {
-					scale = l.BgRect.Height / srcH
-				}
-				drawW := srcW * scale
-				drawH := srcH * scale
-				src := rl.NewRectangle(0, 0, srcW, srcH)
-				dst := rl.NewRectangle(
-					(l.BgRect.Width-drawW)/2,
-					(l.BgRect.Height-drawH)/2,
-					drawW, drawH,
-				)
-				rl.DrawTexturePro(l.currentTex, src, dst, rl.Vector2{}, 0, rl.White)
-			} else {
-				rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height), rl.White)
+				drawContainTexture(l.currentTex, l.BgRect.Width, l.BgRect.Height)
 			}
-
-			if l.Alpha < 255 {
-				overlayAlpha := uint8(255 - l.Alpha)
-				rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height),
-					rl.NewColor(255, 255, 255, overlayAlpha))
-			}
+			drawFadeOverlay(l.BgRect.Width, l.BgRect.Height, l.Alpha)
 		})
 	}
 

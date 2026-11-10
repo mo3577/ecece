@@ -1,6 +1,6 @@
 # AGENTS.md
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 Entry point for AI coding agents (Codex, Cursor, Claude Code, …). **This file is an index; the details live in [`docs/`](docs/README.md).** (`CLAUDE.md` is the same index for Claude Code.)
 

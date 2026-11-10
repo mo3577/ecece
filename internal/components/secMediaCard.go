@@ -2,9 +2,6 @@ package components
 
 import (
 	"log"
-	"math"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,14 +13,6 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
-
-func isVideo(path string) bool {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v", ".3gp":
-		return true
-	}
-	return false
-}
 
 type SecMediaItem struct {
 	ImgPath  string
@@ -46,17 +35,13 @@ type SecondaryMediaCard struct {
 
 func GetSecMediaLayout(screenSize [2]int32, zoom float64) *SecondaryMediaCard {
 	margin := raycss.S(15).Scale(zoom)
-
-	bgHeight := int32(math.Round(float64(screenSize[1]) * contentBandFrac * secMediaFrac))
-	bgWidth := int32(math.Round(float64(bgHeight) * 1.454))
-
-	bgX := margin.Left
-	bgY := float32(screenSize[1])*tickerTopFrac - float32(bgHeight) - margin.Bottom
+	bgHeight := secMediaHeight(screenSize[1])
+	bgWidth := mediaWidth(bgHeight)
 
 	sm := &SecondaryMediaCard{
 		BgRect: rl.Rectangle{
-			X:      bgX,
-			Y:      bgY,
+			X:      margin.Left,
+			Y:      float32(screenSize[1])*tickerTopFrac - float32(bgHeight) - margin.Bottom,
 			Width:  float32(bgWidth),
 			Height: float32(bgHeight),
 		},
@@ -74,7 +59,6 @@ func (l *SecondaryMediaCard) GetData(pb *pocketbase.PocketBase) error {
 	if err != nil {
 		return err
 	}
-
 	records, err := pb.FindRecordsByFilter("Media", "main_only = false", "+display_order", 500, 0)
 	if err != nil {
 		return err
@@ -86,13 +70,12 @@ func (l *SecondaryMediaCard) GetData(pb *pocketbase.PocketBase) error {
 		if imgFile == "" || isVideo(imgFile) {
 			continue
 		}
-		imgPath := storagePath(pb, col.Id, r.Id, imgFile)
 		dur := r.GetInt("duration")
 		if dur <= 0 {
 			dur = 10
 		}
 		data = append(data, SecMediaItem{
-			ImgPath:  imgPath,
+			ImgPath:  storagePath(pb, col.Id, r.Id, imgFile),
 			Duration: dur,
 		})
 	}
@@ -105,7 +88,6 @@ func (l *SecondaryMediaCard) GetData(pb *pocketbase.PocketBase) error {
 	}
 	l.mu.Unlock()
 	l.dirty.Store(true)
-
 	return nil
 }
 
@@ -176,43 +158,14 @@ func (l *SecondaryMediaCard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom f
 		l.loadedPath = imgPath
 	}
 
-	needsRender := l.dirty.Swap(false)
-	if l.Alpha < 255 {
-		needsRender = true
-		l.Alpha += 510 * rl.GetFrameTime()
-		if l.Alpha > 255 {
-			l.Alpha = 255
-		}
-	}
-
+	needsRender := l.dirty.Swap(false) || stepFade(&l.Alpha)
 	if needsRender {
 		l.Mask.PreRender(rl.White, func() {
 			rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height), rl.White)
-
 			if l.hasTexture {
-				// contain-fit: scale to fit, preserve ratio, center
-				srcW := float32(l.currentTex.Width)
-				srcH := float32(l.currentTex.Height)
-				scale := l.BgRect.Width / srcW
-				if l.BgRect.Height/srcH < scale {
-					scale = l.BgRect.Height / srcH
-				}
-				drawW := srcW * scale
-				drawH := srcH * scale
-				src := rl.NewRectangle(0, 0, srcW, srcH)
-				dst := rl.NewRectangle(
-					(l.BgRect.Width-drawW)/2,
-					(l.BgRect.Height-drawH)/2,
-					drawW, drawH,
-				)
-				rl.DrawTexturePro(l.currentTex, src, dst, rl.Vector2{}, 0, rl.White)
+				drawContainTexture(l.currentTex, l.BgRect.Width, l.BgRect.Height)
 			}
-
-			if l.Alpha < 255 {
-				overlayAlpha := uint8(255 - l.Alpha)
-				rl.DrawRectangle(0, 0, int32(l.BgRect.Width), int32(l.BgRect.Height),
-					rl.NewColor(255, 255, 255, overlayAlpha))
-			}
+			drawFadeOverlay(l.BgRect.Width, l.BgRect.Height, l.Alpha)
 		})
 	}
 
