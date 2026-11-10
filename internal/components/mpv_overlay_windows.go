@@ -82,11 +82,12 @@ func parkMpvOverlay() {
 		return
 	}
 	_, _, _ = procShowWindow.Call(hwnd, swHide)
+	off := int32(-32000)
 	_, _, _ = procSetWindowPos.Call(
 		hwnd,
 		hwndNotopmost,
-		uintptr(int32(-32000)),
-		uintptr(int32(-32000)),
+		uintptr(uint32(off)),
+		uintptr(uint32(off)),
 		1,
 		1,
 		swpHideWindow|swpNoActivate,
