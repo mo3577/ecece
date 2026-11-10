@@ -18,42 +18,33 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+const eveningHour = 14 // local hour when evening sections replace morning ones
+
 var arabicDays = [7]string{
 	"الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت",
 }
 
-// ── static labels ─────────────────────────────────────────────────────────
-
 var (
-	shapedSectionA   = lib.Reshape("شعبةA ")
-	shapedSectionB   = lib.Reshape("شعبةB ")
-	shapedEvening    = lib.Reshape("الدراسة المسائية")
 	shapedNoLectures = lib.Reshape("لا يوجد")
 	shapedExamBadge  = lib.Reshape("امتحان")
 )
 
-// Exam highlight colours (warm accent on the cool board palette).
 var (
 	examBg     = rl.NewColor(255, 243, 224, 255)
 	examAccent = rl.NewColor(180, 83, 9, 255)
 )
 
 type secDef struct {
-	key   string
-	label string
+	key    string
+	label  string
+	period string // morning | evening | all
 }
 
-var (
-	morningSecs = []secDef{
-		{key: "B", label: shapedSectionB},
-		{key: "A", label: shapedSectionA},
-	}
-	eveningSecs = []secDef{
-		{key: "مسائي", label: shapedEvening},
-	}
-)
-
-// ── data types ─────────────────────────────────────────────────────────────
+type stageDef struct {
+	Number   int
+	Title    string
+	Sections []secDef
+}
 
 type classStruct struct {
 	Id            string
@@ -67,23 +58,32 @@ type classStruct struct {
 	IsExam        bool
 }
 
-type TableLayout struct {
-	Stages     [4]rl.Rectangle
-	Masks      [4]raycss.MaskContainer
-	titles     [4]string
-	mu         sync.RWMutex
-	data       []classStruct
-	dirty      atomic.Bool
-	lastMinute int
+type stageCard struct {
+	Rect   rl.Rectangle
+	Mask   raycss.MaskContainer
+	Title  string
+	Number int
+}
 
-	pb        *pocketbase.PocketBase // set by Watch; used for the midnight reload
-	loadedDay atomic.Int32           // weekday the current data was loaded for
+type TableLayout struct {
+	screenSize [2]int32
+	zoom       float64
+
+	cards []stageCard
+	mu    sync.RWMutex
+	// stages is the configured class list (with all sections); filtered by period in Draw.
+	stages []stageDef
+	data   []classStruct
+	dirty  atomic.Bool
+
+	lastMinute int
+	lastPeriod string // "morning" / "evening" — dirty when it flips
+
+	pb        *pocketbase.PocketBase
+	loadedDay atomic.Int32
 	reloading atomic.Bool
 }
 
-// ── helpers ────────────────────────────────────────────────────────────────
-
-// Parse12HourTime parses "03:04 PM" as well as "3:04 PM" (case-insensitive).
 func Parse12HourTime(s string) (time.Time, error) {
 	s = strings.ToUpper(strings.TrimSpace(s))
 	if t, err := time.Parse("03:04 PM", s); err == nil {
@@ -92,60 +92,176 @@ func Parse12HourTime(s string) (time.Time, error) {
 	return time.Parse("3:04 PM", s)
 }
 
+func currentPeriod(hour int) string {
+	if hour < eveningHour {
+		return "morning"
+	}
+	return "evening"
+}
+
+func visibleSections(all []secDef, period string) []secDef {
+	out := make([]secDef, 0, len(all))
+	for _, s := range all {
+		p := strings.ToLower(strings.TrimSpace(s.period))
+		if p == "" {
+			p = "all"
+		}
+		if p == "all" || p == period {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func periodOf(key string, all []secDef) string {
+	for _, s := range all {
+		if s.key == key {
+			p := strings.ToLower(strings.TrimSpace(s.period))
+			if p == "" {
+				return "all"
+			}
+			return p
+		}
+	}
+	return ""
+}
+
 // sectionMatches reports whether a schedule row belongs in the given section column.
-//
-// Exams: section A or B → both morning columns (شعبة A and B); مسائي → evening
-// only. Regular lectures keep exact section equality.
-func sectionMatches(lec classStruct, sectionKey string) bool {
+// Exams mirror across every section that shares the exam key's period on that stage
+// (e.g. morning A/B both show a morning exam; evening مسائي stays evening-only).
+func sectionMatches(lec classStruct, sectionKey string, stageSecs []secDef) bool {
 	if !lec.IsExam {
 		return lec.Section == sectionKey
 	}
-	switch lec.Section {
-	case "مسائي":
-		return sectionKey == "مسائي"
-	case "A", "B":
-		return sectionKey == "A" || sectionKey == "B"
-	default:
-		return lec.Section == sectionKey
+	lecPeriod := periodOf(lec.Section, stageSecs)
+	keyPeriod := periodOf(sectionKey, stageSecs)
+	if lecPeriod != "" && keyPeriod != "" && lecPeriod == keyPeriod && lecPeriod != "all" {
+		return true
 	}
+	return lec.Section == sectionKey
 }
 
-// ── init ───────────────────────────────────────────────────────────────────
-
 func GetTableLayout(screenSize [2]int32, zoom float64) *TableLayout {
-	l := &TableLayout{}
-
-	padding := roundPx(15 * zoom)
-	stageW := roundPx(float64(screenSize[0]-padding*5) / 4)
-	stageH := roundPx(float64(screenSize[1])*tableBandFrac) - padding
-
-	for i := range 4 {
-		x := padding + (padding+stageW)*int32(i)
-		l.Stages[i] = rl.Rectangle{
-			X: float32(x), Y: float32(padding),
-			Width: float32(stageW), Height: float32(stageH),
-		}
-		l.Masks[i] = raycss.NewMaskContainer(stageW, stageH, cardRadius)
-		l.titles[i] = lib.Reshape(fmt.Sprintf("المرحلة%d  ", 4-i))
+	l := &TableLayout{
+		screenSize: screenSize,
+		zoom:       zoom,
 	}
-
 	l.dirty.Store(true)
 	l.lastMinute = -1
 	l.loadedDay.Store(-1)
 	return l
 }
 
-// ── data ───────────────────────────────────────────────────────────────────
+func (l *TableLayout) rebuildCards(stages []stageDef) {
+	for i := range l.cards {
+		l.cards[i].Mask.Unload()
+	}
+	l.cards = nil
+	n := len(stages)
+	if n == 0 {
+		return
+	}
+	padding := roundPx(15 * l.zoom)
+	stageW := roundPx(float64(l.screenSize[0]-padding*int32(n+1)) / float64(n))
+	stageH := roundPx(float64(l.screenSize[1])*tableBandFrac) - padding
+	l.cards = make([]stageCard, n)
+	for i, st := range stages {
+		x := padding + (padding+stageW)*int32(i)
+		title := st.Title
+		if strings.TrimSpace(title) == "" {
+			title = fmt.Sprintf("المرحلة%d", st.Number)
+		}
+		l.cards[i] = stageCard{
+			Rect: rl.Rectangle{
+				X: float32(x), Y: float32(padding),
+				Width: float32(stageW), Height: float32(stageH),
+			},
+			Mask:   raycss.NewMaskContainer(stageW, stageH, cardRadius),
+			Title:  lib.Reshape(title + "  "),
+			Number: st.Number,
+		}
+	}
+}
+
+func (l *TableLayout) loadStages(pb *pocketbase.PocketBase) ([]stageDef, error) {
+	stageRecs, err := pb.FindRecordsByFilter("Stages", "", "+display_order,+number", 50, 0)
+	if err != nil {
+		return nil, err
+	}
+	secRecs, err := pb.FindRecordsByFilter("Sections", "", "+display_order,+key", 200, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	byStage := map[int][]secDef{}
+	for _, r := range secRecs {
+		stage := r.GetInt("stage")
+		key := strings.TrimSpace(r.GetString("key"))
+		if stage <= 0 || key == "" {
+			continue
+		}
+		label := strings.TrimSpace(r.GetString("label"))
+		if label == "" {
+			label = key
+		}
+		period := strings.ToLower(strings.TrimSpace(r.GetString("period")))
+		if period == "" {
+			period = "all"
+		}
+		byStage[stage] = append(byStage[stage], secDef{
+			key: key, label: lib.Reshape(label + " "), period: period,
+		})
+	}
+
+	stages := make([]stageDef, 0, len(stageRecs))
+	for _, r := range stageRecs {
+		num := r.GetInt("number")
+		if num <= 0 {
+			continue
+		}
+		stages = append(stages, stageDef{
+			Number:   num,
+			Title:    strings.TrimSpace(r.GetString("title")),
+			Sections: byStage[num],
+		})
+	}
+
+	// Fallback so a missing config still shows something usable.
+	if len(stages) == 0 {
+		stages = defaultStages()
+	}
+	return stages, nil
+}
+
+func defaultStages() []stageDef {
+	out := make([]stageDef, 0, 4)
+	for n := 4; n >= 1; n-- { // left-to-right: 4 … 1
+		out = append(out, stageDef{
+			Number: n,
+			Title:  fmt.Sprintf("المرحلة%d", n),
+			Sections: []secDef{
+				{key: "B", label: lib.Reshape("شعبةB "), period: "morning"},
+				{key: "A", label: lib.Reshape("شعبةA "), period: "morning"},
+				{key: "مسائي", label: lib.Reshape("الدراسة المسائية "), period: "evening"},
+			},
+		})
+	}
+	return out
+}
 
 func (l *TableLayout) GetData(pb *pocketbase.PocketBase) error {
-	// Record the day first so a failing query is retried tomorrow / on the
-	// next record change, not on every frame.
 	weekday := int(time.Now().Weekday())
 	l.loadedDay.Store(int32(weekday))
+
+	stages, err := l.loadStages(pb)
+	if err != nil {
+		return err
+	}
+
 	records, err := pb.FindRecordsByFilter(
 		"Schedules",
 		fmt.Sprintf("day='%s'", arabicDays[weekday]),
-		"", 300, 0,
+		"", 500, 0,
 	)
 	if err != nil {
 		return err
@@ -172,16 +288,27 @@ func (l *TableLayout) GetData(pb *pocketbase.PocketBase) error {
 			IsExam:        r.GetBool("is_exam"),
 		})
 	}
-
 	sort.Slice(data, func(i, j int) bool {
 		return data[i].StartTime.Before(data[j].StartTime)
 	})
 
 	l.mu.Lock()
+	needRebuild := len(stages) != len(l.stages)
+	if !needRebuild {
+		for i := range stages {
+			if stages[i].Number != l.stages[i].Number || stages[i].Title != l.stages[i].Title {
+				needRebuild = true
+				break
+			}
+		}
+	}
+	l.stages = stages
 	l.data = data
+	if needRebuild || len(l.cards) != len(stages) {
+		l.rebuildCards(stages)
+	}
 	l.mu.Unlock()
 	l.dirty.Store(true)
-
 	return nil
 }
 
@@ -193,22 +320,24 @@ func (l *TableLayout) Watch(pb *pocketbase.PocketBase) {
 		}
 		return e.Next()
 	}
-	pb.OnRecordAfterCreateSuccess("Schedules").BindFunc(reload)
-	pb.OnRecordAfterUpdateSuccess("Schedules").BindFunc(reload)
-	pb.OnRecordAfterDeleteSuccess("Schedules").BindFunc(reload)
+	for _, col := range []string{"Schedules", "Stages", "Sections"} {
+		pb.OnRecordAfterCreateSuccess(col).BindFunc(reload)
+		pb.OnRecordAfterUpdateSuccess(col).BindFunc(reload)
+		pb.OnRecordAfterDeleteSuccess(col).BindFunc(reload)
+	}
 }
-
-// ── draw ───────────────────────────────────────────────────────────────────
 
 func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color) {
 	l.mu.RLock()
 	data := l.data
+	stages := l.stages
+	cards := l.cards
 	l.mu.RUnlock()
 
 	now := time.Now()
 	nowH, nowM, _ := now.Clock()
+	period := currentPeriod(nowH)
 
-	// The day filter is applied at load time, so reload when the weekday rolls over.
 	if l.pb != nil && int32(now.Weekday()) != l.loadedDay.Load() &&
 		l.reloading.CompareAndSwap(false, true) {
 		go func() {
@@ -219,16 +348,14 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 		}()
 	}
 
-	// Dirty on minute boundary so expired lectures are removed promptly.
 	nowMin := now.Hour()*60 + now.Minute()
 	if l.lastMinute != nowMin {
 		l.lastMinute = nowMin
 		l.dirty.Store(true)
 	}
-
-	sections := eveningSecs
-	if nowH < 14 {
-		sections = morningSecs
+	if l.lastPeriod != period {
+		l.lastPeriod = period
+		l.dirty.Store(true)
 	}
 
 	headerH := float32(math.Round(48.0 * zoom))
@@ -239,29 +366,33 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 	subFS := float32(math.Round(24.0 * zoom))
 	hallFS := float32(math.Round(18.0 * zoom))
 	noLecFS := float32(math.Round(18.0 * zoom))
+	badgeFS := float32(math.Round(16.0 * zoom))
 	cardPad := raycss.SXY(8, 10).Scale(zoom)
 
-	// Only re-render the off-screen textures when content has changed.
 	if l.dirty.Swap(false) {
-		for i := range 4 {
-			stage := l.Stages[i]
-			stageNum := 4 - i
-			l.Masks[i].PreRender(rl.White, func() {
-				W := stage.Width
-				H := stage.Height
-				secW := W / float32(len(sections))
-
-				// ── stage header ──────────────────────────────────────────────
+		for i := range cards {
+			card := cards[i]
+			st := stages[i]
+			sections := visibleSections(st.Sections, period)
+			cards[i].Mask.PreRender(rl.White, func() {
+				W, H := card.Rect.Width, card.Rect.Height
 				rl.DrawRectangle(0, 0, int32(W), int32(headerH), blue)
-				ts := rl.MeasureTextEx(*font, l.titles[i], titleFS, 0)
-				rl.DrawTextEx(*font, l.titles[i],
+				ts := rl.MeasureTextEx(*font, card.Title, titleFS, 0)
+				rl.DrawTextEx(*font, card.Title,
 					rl.Vector2{X: W/2 - ts.X/2, Y: headerH/2 - ts.Y/2},
 					titleFS, 0, rl.White)
 
-				// ── sections ──────────────────────────────────────────────────
+				if len(sections) == 0 {
+					nSz := rl.MeasureTextEx(*font, shapedNoLectures, noLecFS, 0)
+					rl.DrawTextEx(*font, shapedNoLectures,
+						rl.Vector2{X: W/2 - nSz.X/2, Y: headerH + secNameH},
+						noLecFS, 0, raycss.TextMuted)
+					return
+				}
+
+				secW := W / float32(len(sections))
 				for j, sec := range sections {
 					x0 := float32(j) * secW
-
 					rl.DrawRectangle(int32(x0), int32(headerH), int32(secW), int32(secNameH), lightBlue)
 					slSz := rl.MeasureTextEx(*font, sec.label, sLblFS, 0)
 					rl.DrawTextEx(*font, sec.label,
@@ -269,26 +400,20 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 							X: x0 + secW/2 - slSz.X/2,
 							Y: headerH + secNameH/2 - slSz.Y/2,
 						}, sLblFS, 0, blue)
-
 					if j > 0 {
 						raycss.DrawVLine(x0, headerH, H-headerH, raycss.BorderColor)
 					}
 
-					// ── lectures / exams ──────────────────────────────────────
 					y := headerH + secNameH + cardPad.Top
 					hasAny := false
-					badgeFS := float32(math.Round(16.0 * zoom))
-
 					for _, lec := range data {
-						if lec.Stage != stageNum || !sectionMatches(lec, sec.key) {
+						if lec.Stage != card.Number || !sectionMatches(lec, sec.key, st.Sections) {
 							continue
 						}
-						// skip past lectures
 						endH, endM, _ := lec.EndTime.Clock()
 						if endH < nowH || (endH == nowH && endM <= nowM) {
 							continue
 						}
-						// clip before drawing
 						if y+subFS+hallFS+cardPad.V() > H {
 							break
 						}
@@ -310,42 +435,29 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 
 						blockTop := y - 2
 						blockH := tSz.Y + 2 + subFS + 2 + hallFS + 4
+						timeColor, subjectColor, hallColor := blue, raycss.TextDark, raycss.TextMuted
 						if lec.IsExam {
 							rl.DrawRectangle(int32(x0+2), int32(blockTop), int32(secW-4), int32(blockH), examBg)
 							rl.DrawRectangle(int32(x0+2), int32(blockTop), 3, int32(blockH), examAccent)
-						}
-
-						timeColor := blue
-						subjectColor := raycss.TextDark
-						hallColor := raycss.TextMuted
-						if lec.IsExam {
-							timeColor = examAccent
-							subjectColor = examAccent
-							hallColor = examAccent
+							timeColor, subjectColor, hallColor = examAccent, examAccent, examAccent
 							bSz := rl.MeasureTextEx(*font, shapedExamBadge, badgeFS, 0)
 							rl.DrawTextEx(*font, shapedExamBadge,
 								rl.Vector2{X: x0 + cardPad.Left + 4, Y: y + (tSz.Y-bSz.Y)/2},
 								badgeFS, 0, examAccent)
 						}
 
-						// time — right-aligned
 						rl.DrawTextEx(*font, lec.StartTimeStr,
 							rl.Vector2{X: x0 + secW - cardPad.Right - tSz.X, Y: y},
 							timeFS, 0, timeColor)
 						y += tSz.Y + 2
-
-						// subject — scale down if too wide, right-aligned
 						rl.DrawTextEx(*font, lec.ShapedSubject,
 							rl.Vector2{X: x0 + secW - cardPad.Right - subSz.X, Y: y},
 							fs, 0, subjectColor)
 						y += subFS + 2
-
-						// hall — right-aligned
 						rl.DrawTextEx(*font, lec.ShapedHall,
 							rl.Vector2{X: x0 + secW - cardPad.Right - hSz.X, Y: y},
 							hallFS, 0, hallColor)
 						y += hallFS + 4
-
 						if !lec.IsExam {
 							raycss.DrawHLine(x0+cardPad.Left, y, secW-cardPad.H(), raycss.BorderColor)
 						}
@@ -365,17 +477,15 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 		}
 	}
 
-	// Always blit the cached textures to the screen.
-	for i := range 4 {
-		raycss.DrawSoftShadow(l.Stages[i], cardRadius, shadowSegs)
-		l.Masks[i].Blit(l.Stages[i].X, l.Stages[i].Y)
+	for i := range cards {
+		raycss.DrawSoftShadow(cards[i].Rect, cardRadius, shadowSegs)
+		cards[i].Mask.Blit(cards[i].Rect.X, cards[i].Rect.Y)
 	}
 }
 
-// ── cleanup ────────────────────────────────────────────────────────────────
-
 func (l *TableLayout) CleanUp() {
-	for i := range 4 {
-		l.Masks[i].Unload()
+	for i := range l.cards {
+		l.cards[i].Mask.Unload()
 	}
+	l.cards = nil
 }

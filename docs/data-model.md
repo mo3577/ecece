@@ -1,34 +1,53 @@
 # Data model (PocketBase)
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
-DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `http://localhost:8090/_/`. Collections are **created automatically** on startup by `internal/db/schema.go` (`EnsureSchema`): any missing collection is created with its fields and filled with example records (Schedules for today, 2 ticker messages, 2 professors, 2 notices, 2 generated placeholder PNGs in Media). Existing collections are not recreated; additive field migrations (currently `Schedules.is_exam`) still run. Rules are left superuser-only (the app reads through the in-process API). When you change a field in code, update `schema.go` too.
+DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `http://localhost:8090/_/`. Collections are **created automatically** on startup by `internal/db/schema.go` (`EnsureSchema`): any missing collection is created with its fields and filled with example records. Existing collections are not recreated; additive field migrations (`Schedules.is_exam`, wider `Schedules.stage` max) still run. Rules are left superuser-only (the app reads through the in-process API). When you change a field in code, update `schema.go` too.
 
 | Collection | Field | Type | Notes |
 |---|---|---|---|
-| `Schedules` | `day` | text | Arabic weekday exactly as in `arabicDays` (`tableArea.go`): `الاحد الاثنين الثلاثاء الاربعاء الخميس الجمعة السبت` (**no hamza** on الاحد/الاربعاء) |
-| | `stage` | number | 1–4 (4 is leftmost card) |
-| | `section` | text | `A`, `B`, `مسائي` |
+| `Stages` | `number` | number | Class id (1–20). Matches `Schedules.stage`. |
+| | `title` | text | Card header; empty → `المرحلة{N}` |
+| | `display_order` | number | Lower first. Seed puts stage 4 leftmost (RTL). |
+| `Sections` | `stage` | number | Parent `Stages.number` |
+| | `key` | text | Value stored on `Schedules.section` (`A`, `B`, `مسائي`, …) |
+| | `label` | text | Column header text |
+| | `period` | text | `morning` (before 14:00), `evening` (from 14:00), or `all` |
+| | `display_order` | number | Column order within the stage card |
+| `Schedules` | `day` | text | Arabic weekday exactly as in `arabicDays`: `الاحد الاثنين الثلاثاء الاربعاء الخميس الجمعة السبت` (**no hamza** on الاحد/الاربعاء) |
+| | `stage` | number | 1–20; must match a `Stages.number` |
+| | `section` | text | Must match a `Sections.key` for that stage |
 | | `subject`, `hall` | text | hall is rendered as `قاعة <hall>` |
-| | `start_time`, `end_time` | text | 12-hour `03:04 PM` (Go layout `"03:04 PM"`, zero-padded hour). Parse failure silently yields zero time |
-| | `is_exam` | bool | Exam row: warm highlight + `امتحان` badge. If `section` is `A` or `B`, the exam is shown in **both** morning columns; if `مسائي`, only under the evening column. Regular lectures still match their section exactly. |
-| `TickerBar` | `text` | text | one message per record; order = DB default |
-| `Professors` | `name`, `role`, `bio` | text | role is upper-cased on display; Latin layout |
+| | `start_time`, `end_time` | text | 12-hour `03:04 PM` (also accepts `3:04 PM`) |
+| | `is_exam` | bool | Highlighted. Mirrors across every section that shares the same `period` on that stage |
+| `TickerBar` | `text` | text | one message per record |
+| `Professors` | `name`, `role`, `bio` | text | role upper-cased on display |
 | | `image` | file | |
-| | `display_order` | number | sort key |
+| | `display_order` | number | |
 | `Notices` | `text` | text | Arabic/emoji; prefixed with 📌 |
 | | `image` | file | optional |
 | | `duration` | number | seconds, ≤0 → 10 |
 | | `display_order` | number | |
-| `Media` | `file` | file | image or video (video by extension: mp4 avi mov mkv webm flv wmv m4v 3gp) |
+| `Media` | `file` | file | image or video |
 | | `duration` | number | seconds for images, ≤0 → 10 |
 | | `main_only` | bool | true → hidden from secondary card |
 | | `display_order` | number | |
 
+## Configuring classes & sections
+
+1. Open **Stages** — add/remove records to set how many class cards appear.
+2. Open **Sections** — for each stage, add one row per column (`key`, `label`, `period`).
+3. Put lectures in **Schedules** using the same `stage` number and section `key`.
+
+Example: 3 classes, stage 2 has three morning sections A/B/C:
+
+- Stages: numbers `1`, `2`, `3`
+- Sections for stage 2: `A`/`B`/`C` with `period=morning`, plus optional `مسائي` with `period=evening`
+
 ## File paths
 
-Uploaded files are read straight from disk: `<pb.DataDir()>/storage/<collectionId>/<recordId>/<filename>` (via `storagePath` in `internal/components/paths.go`; a missing file is logged). `DataDir()` defaults to `pb_data/` in the process CWD, so run the binary from the directory containing `pb_data/`.
+Uploaded files: `<pb.DataDir()>/storage/<collectionId>/<recordId>/<filename>`.
 
 ## Realtime
 
-Hooks `OnRecordAfterCreate/Update/DeleteSuccess(<collection>)` call `GetData` again (full reload, not delta). `Media` is watched by two components (main + secondary).
+Hooks on create/update/delete reload the related components. `Stages` and `Sections` changes rebuild the schedule strip live.

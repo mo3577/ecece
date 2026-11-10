@@ -2,13 +2,14 @@
 
 _Last updated: 2026-11-10_
 
+
 All components live in package `components`. Shared layout in `layout.go` (`cardRadius`, `shadowSegs`, `mediaAspect=1.454`, band fractions). Shared draw helpers in `drawutil.go` (`containFit`, `stepFade`, `drawContainTexture`). Texture helpers in `texture.go` (`loadTexture`, `isVideo`). Paths in `paths.go`.
 
 Common fields: `BgRect`, `Mask raycss.MaskContainer`, `mu sync.RWMutex`, `dirty atomic.Bool`, `data`, `currentIdx`, `lastSwitch`, `Alpha` (0→255 fade-in, driven at 510/s ≈ 0.5 s), `loadedPath/currentTex/hasTexture` (single cached GPU texture).
 
 | File | Type | Collection | Behaviour |
 |---|---|---|---|
-| `tableArea.go` | `TableLayout` | `Schedules` | 4 stage cards (stage = `4 - i`). Header, section sub-header, per-lecture: start time, subject (shrunk to fit width), hall. Past lectures hidden; "لا يوجد" when empty. Sort by start time. `is_exam` rows get a warm highlight + `امتحان` badge; exam section `A`/`B` → both morning columns, `مسائي` → evening only (`sectionMatches`). |
+| `tableArea.go` | `TableLayout` | `Stages` + `Sections` + `Schedules` | N class cards from `Stages` (ordered by `display_order`). Columns from that stage's `Sections` filtered by `period` (morning before 14:00 / evening after). Lectures from today's `Schedules`. Past rows hidden; exams highlighted and mirrored across same-period sections. |
 | `tickerBar.go` | `TickerBarLayout` | `TickerBar` | Concatenates all `text` fields with ` ~ ` separators, reshaped + emoji-split. Scrolls rightwards at `screenW/30` px/s; the text width is measured once per data change (under the lock). Two copies scroll across exactly one screen width apart (start to start); when one's start reaches the right corner it wraps to the left corner, keeping the distance (period = max(screenW, textW)). Blue bar, white text. |
 | `professorsBoard.go` | `ProfessorsBoard` | `Professors` (sorted `display_order`) | Cycles every fixed 20 s (`profCycleDuration`). Cropped (cover-fit) photo in its own `imgMask`, name / uppercase role / justified bio. Latin text path (no Reshape of whole card; `FitText` reshapes internally). |
 | `secMediaCard.go` | `SecondaryMediaCard` | `Media` where `main_only = false`, images only | Contain-fit image, per-item `duration` (default 10 s). Starts at index 1 so it is out of phase with main media. |

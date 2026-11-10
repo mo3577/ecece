@@ -16,6 +16,8 @@ import (
 // Collection names — must match the names used by internal/components.
 const (
 	colSchedules  = "Schedules"
+	colStages     = "Stages"
+	colSections   = "Sections"
 	colTickerBar  = "TickerBar"
 	colProfessors = "Professors"
 	colNotices    = "Notices"
@@ -39,6 +41,8 @@ type collectionSpec struct {
 // collections (and their data) are never touched, so it is safe on every start.
 func EnsureSchema(app core.App) error {
 	specs := []collectionSpec{
+		{colStages, buildStages, seedStages},
+		{colSections, buildSections, seedSections},
 		{colSchedules, buildSchedules, seedSchedules},
 		{colTickerBar, buildTickerBar, seedTickerBar},
 		{colProfessors, buildProfessors, seedProfessors},
@@ -66,6 +70,9 @@ func EnsureSchema(app core.App) error {
 	if err := ensureSchedulesExamField(app); err != nil {
 		return err
 	}
+	if err := ensureSchedulesStageMax(app); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -86,6 +93,27 @@ func ensureSchedulesExamField(app core.App) error {
 	return nil
 }
 
+// ensureSchedulesStageMax raises Schedules.stage max so more than 4 classes are allowed.
+func ensureSchedulesStageMax(app core.App) error {
+	c, err := app.FindCollectionByNameOrId(colSchedules)
+	if err != nil || c == nil {
+		return nil
+	}
+	f, ok := c.Fields.GetByName("stage").(*core.NumberField)
+	if !ok || f == nil {
+		return nil
+	}
+	if f.Max != nil && *f.Max >= 20 {
+		return nil
+	}
+	f.Max = ptr(20.0)
+	if err := app.Save(c); err != nil {
+		return fmt.Errorf("widen Schedules.stage max: %w", err)
+	}
+	log.Printf("db: raised Schedules.stage max to 20")
+	return nil
+}
+
 func ptr[T any](v T) *T { return &v }
 
 func insert(app core.App, c *core.Collection, rows []map[string]any) error {
@@ -101,19 +129,65 @@ func insert(app core.App, c *core.Collection, rows []map[string]any) error {
 	return nil
 }
 
+// ── Stages / Sections (class + section layout) ───────────────────────────────
+
+func buildStages(c *core.Collection) {
+	c.Fields.Add(
+		&core.NumberField{Name: "number", Required: true, OnlyInt: true, Min: ptr(1.0), Max: ptr(20.0)},
+		&core.TextField{Name: "title"}, // empty → "المرحلة{N}"
+		&core.NumberField{Name: "display_order", OnlyInt: true},
+	)
+	c.AddIndex("idx_stages_number", true, "`number`", "")
+}
+
+func seedStages(app core.App, c *core.Collection) error {
+	rows := make([]map[string]any, 0, 4)
+	for n := 1; n <= 4; n++ {
+		rows = append(rows, map[string]any{
+			"number": n, "title": fmt.Sprintf("المرحلة%d", n),
+			// Higher display_order = further left (RTL board: stage 4 leftmost).
+			"display_order": 5 - n,
+		})
+	}
+	return insert(app, c, rows)
+}
+
+func buildSections(c *core.Collection) {
+	c.Fields.Add(
+		&core.NumberField{Name: "stage", Required: true, OnlyInt: true, Min: ptr(1.0), Max: ptr(20.0)},
+		&core.TextField{Name: "key", Required: true},   // value stored on Schedules.section
+		&core.TextField{Name: "label", Required: true}, // column header
+		// morning = before 14:00, evening = from 14:00, all = always
+		&core.TextField{Name: "period", Required: true},
+		&core.NumberField{Name: "display_order", OnlyInt: true},
+	)
+	c.AddIndex("idx_sections_stage", false, "`stage`", "")
+}
+
+func seedSections(app core.App, c *core.Collection) error {
+	rows := make([]map[string]any, 0, 12)
+	for stage := 1; stage <= 4; stage++ {
+		rows = append(rows,
+			map[string]any{"stage": stage, "key": "B", "label": "شعبةB", "period": "morning", "display_order": 1},
+			map[string]any{"stage": stage, "key": "A", "label": "شعبةA", "period": "morning", "display_order": 2},
+			map[string]any{"stage": stage, "key": "مسائي", "label": "الدراسة المسائية", "period": "evening", "display_order": 1},
+		)
+	}
+	return insert(app, c, rows)
+}
+
 // ── Schedules ────────────────────────────────────────────────────────────────
 
 func buildSchedules(c *core.Collection) {
 	c.Fields.Add(
 		&core.TextField{Name: "day", Required: true},
-		&core.NumberField{Name: "stage", Required: true, OnlyInt: true, Min: ptr(1.0), Max: ptr(4.0)},
-		&core.TextField{Name: "section", Required: true}, // "A", "B", "مسائي"
+		&core.NumberField{Name: "stage", Required: true, OnlyInt: true, Min: ptr(1.0), Max: ptr(20.0)},
+		&core.TextField{Name: "section", Required: true}, // matches Sections.key
 		&core.TextField{Name: "subject", Required: true},
 		&core.TextField{Name: "hall"},
 		&core.TextField{Name: "start_time", Required: true}, // "03:04 PM"
 		&core.TextField{Name: "end_time", Required: true},
-		// Exam rows are highlighted; section A or B → show in both morning
-		// columns; مسائي → evening only (see components.sectionMatches).
+		// Exam rows are highlighted; same-period sections mirror (see sectionMatches).
 		&core.BoolField{Name: "is_exam"},
 	)
 	c.AddIndex("idx_schedules_day", false, "`day`", "")

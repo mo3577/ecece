@@ -50,7 +50,7 @@ Shared constants in `tableArea.go`: `tableBandFrac=0.28`, `contentBandFrac=0.67`
 
 | Region | Position / size |
 |---|---|
-| Table (4 stage cards) | y=pad, h=`tableBandFrac*H−pad`; 4 equal cards across width. Stage 4 is leftmost, stage 1 rightmost (RTL) |
+| Table (N stage cards) | y=pad, h=`tableBandFrac*H−pad`; equal cards across width from `Stages`/`Sections` config (seed: stage 4 leftmost) |
 | Professors board | x=pad, y=`tableBandFrac*H+pad`, w=`secH*1.454`, h=`contentBandFrac*H − secH − 3pad` where `secH = contentBandFrac*secMediaFrac*H`; portrait ≈ 48% of board height |
 | Secondary media | x=pad, bottom-aligned at `tickerTopFrac*H−pad`, size `secH*1.454 × secH` |
 | Main media | x=`secH*1.454 + pad`, y=`tableBandFrac*H+pad`, h=`contentBandFrac*H−2pad`, w=`h*1.454` |

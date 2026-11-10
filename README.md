@@ -115,6 +115,15 @@ FPS=30 ZOOM=1.35 go run .
 
 ## Data Model (PocketBase Collections)
 
+### `Stages` / `Sections`
+
+Configure how many classes appear and which sections each class has (PocketBase admin).
+
+| Collection | Field | Notes |
+|---|---|---|
+| `Stages` | `number`, `title`, `display_order` | One card per stage (`number` matches schedule rows) |
+| `Sections` | `stage`, `key`, `label`, `period`, `display_order` | `period`: `morning` / `evening` / `all` |
+
 ### `Schedules`
 
 Holds the per-stage lecture schedule.
@@ -122,13 +131,13 @@ Holds the per-stage lecture schedule.
 | Field | Type | Notes |
 |---|---|---|
 | `day` | string | Arabic weekday name (e.g. `الاحد`, no hamza) |
-| `stage` | number | 1–4 |
-| `section` | string | `"A"`, `"B"`, or `"مسائي"` |
+| `stage` | number | Matches `Stages.number` (1–20) |
+| `section` | string | Matches `Sections.key` for that stage |
 | `subject` | string | Subject name (Arabic or Latin) |
 | `hall` | string | Room/hall identifier |
 | `start_time` | string | 12-hour format, e.g. `"08:00 AM"` |
 | `end_time` | string | 12-hour format, e.g. `"10:00 AM"` |
-| `is_exam` | bool | Highlight as exam. `A`/`B` → both morning sections; `مسائي` → evening only |
+| `is_exam` | bool | Highlight; mirrors across same-period sections on that stage |
 
 ### `TickerBar`
 

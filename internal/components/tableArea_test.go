@@ -2,13 +2,22 @@ package components
 
 import "testing"
 
+func sampleStageSecs() []secDef {
+	return []secDef{
+		{key: "B", label: "B", period: "morning"},
+		{key: "A", label: "A", period: "morning"},
+		{key: "C", label: "C", period: "morning"},
+		{key: "مسائي", label: "eve", period: "evening"},
+	}
+}
+
 func TestSectionMatches(t *testing.T) {
+	secs := sampleStageSecs()
 	lectureA := classStruct{Section: "A", IsExam: false}
-	lectureB := classStruct{Section: "B", IsExam: false}
 	lectureEve := classStruct{Section: "مسائي", IsExam: false}
 	examA := classStruct{Section: "A", IsExam: true}
-	examB := classStruct{Section: "B", IsExam: true}
 	examEve := classStruct{Section: "مسائي", IsExam: true}
+	examC := classStruct{Section: "C", IsExam: true}
 
 	cases := []struct {
 		name string
@@ -18,28 +27,37 @@ func TestSectionMatches(t *testing.T) {
 	}{
 		{"lecture A in A", lectureA, "A", true},
 		{"lecture A not in B", lectureA, "B", false},
-		{"lecture B in B", lectureB, "B", true},
 		{"lecture evening only", lectureEve, "مسائي", true},
 		{"lecture evening not in A", lectureEve, "A", false},
 		{"exam A in A", examA, "A", true},
 		{"exam A also in B", examA, "B", true},
+		{"exam A also in C (same morning period)", examA, "C", true},
 		{"exam A not in evening", examA, "مسائي", false},
-		{"exam B in A", examB, "A", true},
-		{"exam B in B", examB, "B", true},
-		{"exam B not in evening", examB, "مسائي", false},
+		{"exam C in A (same morning period)", examC, "A", true},
 		{"exam evening only", examEve, "مسائي", true},
 		{"exam evening not in A", examEve, "A", false},
-		{"exam evening not in B", examEve, "B", false},
 	}
 	for _, tc := range cases {
-		if got := sectionMatches(tc.lec, tc.key); got != tc.want {
+		if got := sectionMatches(tc.lec, tc.key, secs); got != tc.want {
 			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }
 
+func TestVisibleSections(t *testing.T) {
+	all := sampleStageSecs()
+	m := visibleSections(all, "morning")
+	if len(m) != 3 || m[0].key != "B" || m[2].key != "C" {
+		t.Fatalf("morning=%v", m)
+	}
+	e := visibleSections(all, "evening")
+	if len(e) != 1 || e[0].key != "مسائي" {
+		t.Fatalf("evening=%v", e)
+	}
+}
+
 func TestParse12HourTime(t *testing.T) {
-	good := map[string][2]int{ // input -> hour, minute
+	good := map[string][2]int{
 		"08:00 AM":   {8, 0},
 		"8:00 AM":    {8, 0},
 		"8:00 am":    {8, 0},

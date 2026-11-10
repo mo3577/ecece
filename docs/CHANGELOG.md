@@ -2,9 +2,11 @@
 
 _Last updated: 2026-11-10_
 
+
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-10
+- Configurable classes/sections: new PocketBase `Stages` + `Sections` collections drive how many class cards appear and which section columns each has (`morning` / `evening` / `all`). Schedule strip rebuilds live; `Schedules.stage` max raised to 20. Docs: data-model, components.
 - Cleanup: shared `layout.go` / `drawutil.go` / `texture.go`; main media video tick+hole moved onto the card (`TickVideo`/`PunchHole`); `main.go` bind/env helpers; contain-fit/fade helpers reused by media cards. Docs: components, architecture.
 
 ## 2026-11-09
