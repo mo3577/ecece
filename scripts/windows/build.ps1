@@ -53,7 +53,7 @@ if ($dll) {
         }
     }
 } else {
-    Write-Host "WARNING: no libmpv DLL in .\deps — runtime video needs libmpv-2.dll or libmpv.dll beside ECE-screen.exe" -ForegroundColor Yellow
+    Write-Host "WARNING: no libmpv DLL in .\deps - runtime video needs libmpv-2.dll or libmpv.dll beside ECE-screen.exe" -ForegroundColor Yellow
 }
 
 Write-Host "Built $out" -ForegroundColor Green
