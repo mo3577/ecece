@@ -5,7 +5,7 @@ $ErrorActionPreference = "Continue"
 $bad = 0
 
 function Ok($msg) { Write-Host "  OK  $msg" -ForegroundColor Green }
-function Fail($msg) { Write-Host "  FAIL $msg" -ForegroundColor Red; script:bad++ }
+function Fail($msg) { Write-Host "  FAIL $msg" -ForegroundColor Red; $script:bad++ }
 function Warn($msg) { Write-Host "  WARN $msg" -ForegroundColor Yellow }
 
 Write-Host ""
@@ -18,10 +18,15 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     Fail "Go not found - install from https://go.dev/dl and reopen the terminal"
 }
 
+# Prefer MSYS2 mingw64 on PATH for this check (same as build.ps1).
+$mingwBin = "C:\msys64\mingw64\bin"
+if (-not (Get-Command gcc -ErrorAction SilentlyContinue) -and (Test-Path $mingwBin)) {
+    $env:Path = "$mingwBin;" + $env:Path
+}
 $gcc = Get-Command gcc -ErrorAction SilentlyContinue
 if (-not $gcc) { $gcc = Get-Command x86_64-w64-mingw32-gcc -ErrorAction SilentlyContinue }
 if ($gcc) { Ok ("C compiler: " + $gcc.Source) }
-else { Fail "MinGW gcc not found - install MSYS2 and: pacman -S mingw-w64-x86_64-gcc (then add mingw64\bin to PATH)" }
+else { Fail "MinGW gcc not found - open MSYS2 MINGW64 and run: pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf" }
 
 $ff = Get-Command ffprobe -ErrorAction SilentlyContinue
 if ($ff) { Ok ("ffprobe: " + $ff.Source) }

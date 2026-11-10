@@ -6,6 +6,7 @@ _Last updated: 2026-11-10_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-10
+- Windows doctor.ps1: fix `$script:bad++` (PS 5.1), auto-prepend `C:\msys64\mingw64\bin` when checking gcc.
 - Windows PowerShell scripts: replace Unicode em-dashes with ASCII so Windows PowerShell 5.1 does not parse-fail on UTF-8 downloads.
 - Windows support: `scripts/windows/{doctor,build,run}.ps1`, root `build.bat`/`run.bat`, `deploy/ece-screen-windows.bat` kiosk launcher, `deps/README.txt` for libmpv DLL. Docs: operations, README, `scripts/windows/README.md`.
 - Configurable classes/sections: new PocketBase `Stages` + `Sections` collections drive how many class cards appear and which section columns each has (`morning` / `evening` / `all`). Schedule strip rebuilds live; `Schedules.stage` max raised to 20. Docs: data-model, components.
