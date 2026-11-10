@@ -3,6 +3,8 @@ package components
 import (
 	"fmt"
 	"log"
+	"math"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,26 +68,34 @@ func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
 }
 
 func (l *MainMediaCard) playVideo(path string) {
-	cardW := int32(l.BgRect.Width)
-	cardH := int32(l.BgRect.Height)
-	x := int32(l.BgRect.X)
-	y := int32(l.BgRect.Y)
-	sw, sh := l.screenSize[0], l.screenSize[1]
-	if sw <= 0 || sh <= 0 || cardW <= 0 || cardH <= 0 {
+	rayW := float64(rl.GetScreenWidth())
+	rayH := float64(rl.GetScreenHeight())
+	if rayW <= 0 || rayH <= 0 {
+		rayW, rayH = float64(l.screenSize[0]), float64(l.screenSize[1])
+	}
+	if rayW <= 0 || rayH <= 0 || l.BgRect.Width <= 0 || l.BgRect.Height <= 0 {
 		return
 	}
 
-	drawW, drawH := cardW, cardH
-	offX, offY := int32(0), int32(0)
-	if vw, vh, err := video.Resolution(path); err == nil && vw > 0 && vh > 0 {
-		scale := float64(cardW) / float64(vw)
-		if scaledH := float64(vh) * scale; scaledH > float64(cardH) {
-			scale = float64(cardH) / float64(vh)
-		}
-		drawW = int32(float64(vw) * scale)
-		drawH = int32(float64(vh) * scale)
-		offX = (cardW - drawW) / 2
-		offY = (cardH - drawH) / 2
+	// Map raylib card coords into mpv's real OSD/fullscreen pixels (Windows
+	// DPI / borderless vs exclusive fullscreen often disagree on size).
+	mpvW := float64(mpvPropInt("osd-width", int32(rayW)))
+	mpvH := float64(mpvPropInt("osd-height", int32(rayH)))
+	if mpvW <= 0 {
+		mpvW = rayW
+	}
+	if mpvH <= 0 {
+		mpvH = rayH
+	}
+	sx, sy := mpvW/rayW, mpvH/rayH
+
+	x := int32(math.Round(float64(l.BgRect.X) * sx))
+	y := int32(math.Round(float64(l.BgRect.Y) * sy))
+	cardW := int32(math.Round(float64(l.BgRect.Width) * sx))
+	cardH := int32(math.Round(float64(l.BgRect.Height) * sy))
+	sw, sh := int32(math.Round(mpvW)), int32(math.Round(mpvH))
+	if cardW <= 0 || cardH <= 0 || sw <= 0 || sh <= 0 {
+		return
 	}
 
 	// Clear leftover margins; keep software decode for .mov compatibility.
@@ -94,8 +104,14 @@ func (l *MainMediaCard) playVideo(path string) {
 	_ = video.Player.SetPropertyString("video-margin-ratio-top", "0")
 	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", "0")
 	_ = video.Player.SetPropertyString("hwdec", "no")
-	vf := fmt.Sprintf("scale=%d:%d:flags=fast_bilinear,pad=%d:%d:%d:%d:black@0",
-		drawW, drawH, sw, sh, x+offX, y+offY)
+	// Fit inside the card (no ffprobe), center with pad expressions, then
+	// place that card-sized frame onto the fullscreen mpv canvas.
+	vf := fmt.Sprintf(
+		"scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,"+
+			"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,"+
+			"pad=%d:%d:%d:%d:black",
+		cardW, cardH, cardW, cardH, sw, sh, x, y,
+	)
 	_ = video.Player.SetPropertyString("vf", vf)
 	_ = video.Player.SetPropertyString("fullscreen", "yes")
 	if err := video.Player.Command([]string{"loadfile", path, "replace"}); err != nil {
@@ -107,6 +123,21 @@ func (l *MainMediaCard) playVideo(path string) {
 	l.videoStartedAt = time.Now()
 	l.videoSeenPlaying = false
 	l.IsVideo = true
+}
+
+func mpvPropInt(name string, fallback int32) int32 {
+	if video.Player == nil {
+		return fallback
+	}
+	s, err := video.Player.GetPropertyString(name)
+	if err != nil || s == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return fallback
+	}
+	return int32(n)
 }
 
 // TickVideo advances mpv idle/end-of-file state. Call once per frame from main.

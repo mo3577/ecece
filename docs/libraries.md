@@ -1,6 +1,6 @@
 # Libraries (`lib/*`)
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 ## `lib/fonts` (package `lib`, file `arabic.go`)
 
@@ -26,4 +26,4 @@ _Last updated: 2026-11-09_
 
 ## `lib/video` (do not modify)
 
-`Player *mpv.Mpv` global, `MpvInit()` (idle, force-window, fullscreen, transparent-black bg, 400 ms sleep), `Resolution(path)` via `ffprobe` (kept; main media no longer needs it for layout), `Unload()` (`stop`), `IsIdle()` (`idle-active`). `mainMediaCard.go` drives playback: it sets `hwdec` / `video-margin-ratio-*` / clears `vf` on the shared player at play time without changing this package.
+`Player *mpv.Mpv` global, `MpvInit()` (idle, force-window, fullscreen, transparent-black bg, 400 ms sleep), `Resolution(path)` via `ffprobe` (kept; unused by main-media layout), `Unload()` (`stop`), `IsIdle()` (`idle-active`). `mainMediaCard.go` drives playback: `hwdec=no`, clears margins, sets `vf` scale/pad (aspect-fit + card→OSD mapping) without changing this package.
