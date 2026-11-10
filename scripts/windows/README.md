@@ -48,4 +48,4 @@ Or Task Scheduler → At log on → start that bat.
 
 - Working directory must contain `pb_data\` (created on first run) and `resources\fonts\twemoji`.
 - Optional `.env` (`FPS`, `ZOOM`, …) is loaded by `run.ps1`.
-- Transparent fullscreen + mpv hole-punch works on Windows the same as Linux when libmpv loads.
+- Video on Windows uses a borderless always-on-top mpv window over the main media card (not Linux-style transparent hole-punch).

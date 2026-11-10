@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -68,33 +69,9 @@ func GetMainMediaLayout(screenSize [2]int32, zoom float64) *MainMediaCard {
 }
 
 func (l *MainMediaCard) playVideo(path string) {
-	rayW := float64(rl.GetScreenWidth())
-	rayH := float64(rl.GetScreenHeight())
-	if rayW <= 0 || rayH <= 0 {
-		rayW, rayH = float64(l.screenSize[0]), float64(l.screenSize[1])
-	}
-	if rayW <= 0 || rayH <= 0 || l.BgRect.Width <= 0 || l.BgRect.Height <= 0 {
-		return
-	}
-
-	// Map raylib card coords into mpv's real OSD/fullscreen pixels (Windows
-	// DPI / borderless vs exclusive fullscreen often disagree on size).
-	mpvW := float64(mpvPropInt("osd-width", int32(rayW)))
-	mpvH := float64(mpvPropInt("osd-height", int32(rayH)))
-	if mpvW <= 0 {
-		mpvW = rayW
-	}
-	if mpvH <= 0 {
-		mpvH = rayH
-	}
-	sx, sy := mpvW/rayW, mpvH/rayH
-
-	x := int32(math.Round(float64(l.BgRect.X) * sx))
-	y := int32(math.Round(float64(l.BgRect.Y) * sy))
-	cardW := int32(math.Round(float64(l.BgRect.Width) * sx))
-	cardH := int32(math.Round(float64(l.BgRect.Height) * sy))
-	sw, sh := int32(math.Round(mpvW)), int32(math.Round(mpvH))
-	if cardW <= 0 || cardH <= 0 || sw <= 0 || sh <= 0 {
+	cardW := int32(math.Round(float64(l.BgRect.Width)))
+	cardH := int32(math.Round(float64(l.BgRect.Height)))
+	if cardW <= 0 || cardH <= 0 {
 		return
 	}
 
@@ -104,20 +81,64 @@ func (l *MainMediaCard) playVideo(path string) {
 	_ = video.Player.SetPropertyString("video-margin-ratio-top", "0")
 	_ = video.Player.SetPropertyString("video-margin-ratio-bottom", "0")
 	_ = video.Player.SetPropertyString("hwdec", "no")
-	// Fit inside the card (no ffprobe), center with pad expressions, then
-	// place that card-sized frame onto the fullscreen mpv canvas.
-	vf := fmt.Sprintf(
+
+	// Fit + letterbox inside the card (no ffprobe required).
+	vfCard := fmt.Sprintf(
 		"scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,"+
-			"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,"+
-			"pad=%d:%d:%d:%d:black",
-		cardW, cardH, cardW, cardH, sw, sh, x, y,
+			"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black",
+		cardW, cardH, cardW, cardH,
 	)
-	_ = video.Player.SetPropertyString("vf", vf)
-	_ = video.Player.SetPropertyString("fullscreen", "yes")
+
+	if runtime.GOOS == "windows" {
+		// Windows: layered/OpenGL punch-through is unreliable, so place a
+		// borderless mpv window on top of the card instead of under a hole.
+		win := rl.GetWindowPosition()
+		x := int32(math.Round(float64(win.X + l.BgRect.X)))
+		y := int32(math.Round(float64(win.Y + l.BgRect.Y)))
+		_ = video.Player.SetPropertyString("fullscreen", "no")
+		_ = video.Player.SetPropertyString("border", "no")
+		_ = video.Player.SetPropertyString("ontop", "yes")
+		_ = video.Player.SetPropertyString("window-opacity", "1")
+		_ = video.Player.SetPropertyString("geometry", fmt.Sprintf("%dx%d+%d+%d", cardW, cardH, x, y))
+		_ = video.Player.SetPropertyString("vf", vfCard)
+	} else {
+		rayW := float64(rl.GetScreenWidth())
+		rayH := float64(rl.GetScreenHeight())
+		if rayW <= 0 || rayH <= 0 {
+			rayW, rayH = float64(l.screenSize[0]), float64(l.screenSize[1])
+		}
+		if rayW <= 0 || rayH <= 0 {
+			return
+		}
+		mpvW := float64(mpvPropInt("osd-width", int32(rayW)))
+		mpvH := float64(mpvPropInt("osd-height", int32(rayH)))
+		if mpvW <= 0 {
+			mpvW = rayW
+		}
+		if mpvH <= 0 {
+			mpvH = rayH
+		}
+		sx, sy := mpvW/rayW, mpvH/rayH
+		x := int32(math.Round(float64(l.BgRect.X) * sx))
+		y := int32(math.Round(float64(l.BgRect.Y) * sy))
+		padW := int32(math.Round(float64(cardW) * sx))
+		padH := int32(math.Round(float64(cardH) * sy))
+		sw, sh := int32(math.Round(mpvW)), int32(math.Round(mpvH))
+		vf := fmt.Sprintf(
+			"scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,"+
+				"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,"+
+				"pad=%d:%d:%d:%d:black",
+			padW, padH, padW, padH, sw, sh, x, y,
+		)
+		_ = video.Player.SetPropertyString("vf", vf)
+		_ = video.Player.SetPropertyString("fullscreen", "yes")
+	}
+
 	if err := video.Player.Command([]string{"loadfile", path, "replace"}); err != nil {
 		log.Printf("mainmedia loadfile %s: %v", path, err)
 		l.IsVideo = false
 		l.videoSeenPlaying = false
+		hideMpvOverlay()
 		return
 	}
 	l.videoStartedAt = time.Now()
@@ -140,6 +161,16 @@ func mpvPropInt(name string, fallback int32) int32 {
 	return int32(n)
 }
 
+// hideMpvOverlay parks the Windows mpv window so it does not cover the UI.
+func hideMpvOverlay() {
+	if runtime.GOOS != "windows" || video.Player == nil {
+		return
+	}
+	_ = video.Player.SetPropertyString("ontop", "no")
+	_ = video.Player.SetPropertyString("window-opacity", "0")
+	_ = video.Player.SetPropertyString("geometry", "1x1+-32000+-32000")
+}
+
 // TickVideo advances mpv idle/end-of-file state. Call once per frame from main.
 func (l *MainMediaCard) TickVideo() {
 	if !l.IsVideo {
@@ -155,8 +186,9 @@ func (l *MainMediaCard) TickVideo() {
 }
 
 // PunchHole clears the card rect so the mpv window underneath shows through.
+// On Windows the video uses an on-top overlay window instead (see playVideo).
 func (l *MainMediaCard) PunchHole() {
-	if !l.IsVideo {
+	if !l.IsVideo || runtime.GOOS == "windows" {
 		return
 	}
 	rl.BeginBlendMode(rl.BlendCustomSeparate)
@@ -183,6 +215,7 @@ func (l *MainMediaCard) HandleVideoEnded() {
 	l.IsVideo = false
 	l.videoSeenPlaying = false
 	video.Unload()
+	hideMpvOverlay()
 	l.loadedPath = ""
 	if n > 1 {
 		l.cycle()
@@ -250,6 +283,11 @@ func (l *MainMediaCard) cycle() {
 }
 
 func (l *MainMediaCard) CleanUp() {
+	if l.IsVideo {
+		l.IsVideo = false
+		video.Unload()
+		hideMpvOverlay()
+	}
 	if l.hasTexture {
 		rl.UnloadTexture(l.currentTex)
 		l.hasTexture = false
@@ -285,10 +323,17 @@ func (l *MainMediaCard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float6
 			rl.UnloadTexture(l.currentTex)
 			l.hasTexture = false
 		}
-		if filePath != "" {
-			if data[idx].IsVideo {
-				l.playVideo(filePath)
-			} else if tex, ok := loadTexture(filePath); ok {
+		goingVideo := filePath != "" && len(data) > 0 && data[idx].IsVideo
+		if l.IsVideo && !goingVideo {
+			l.IsVideo = false
+			l.videoSeenPlaying = false
+			video.Unload()
+			hideMpvOverlay()
+		}
+		if goingVideo {
+			l.playVideo(filePath)
+		} else if filePath != "" {
+			if tex, ok := loadTexture(filePath); ok {
 				rl.SetTextureFilter(tex, rl.FilterBilinear)
 				l.currentTex = tex
 				l.hasTexture = true

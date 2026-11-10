@@ -42,7 +42,7 @@ Rendering optimisation: each card draws into its own `MaskContainer` only when `
 1. exit on `X` key; `mainMedia.TickVideo()` (end/replay when mpv goes idle after playback has started, or after 15 s load timeout)
 2. clear to `bgColor` (248,249,250)
 3. draw: table → professors → secMedia → mainMedia → ticker → notice board
-4. `mainMedia.PunchHole()` — transparent hole over `BgRect` so the mpv window underneath shows through
+4. `mainMedia.PunchHole()` — Linux: transparent hole over `BgRect` so fullscreen mpv underneath shows through; Windows: no-op (mpv is an on-top card-sized overlay)
 
 ## Screen layout (fractions of screen H, `pad = 15*zoom`)
 
