@@ -1,6 +1,8 @@
 # Windows build & run
 
-ECE-screen runs on Windows with **Go + MinGW (CGO) + libmpv DLL + OpenGL**.
+ECE-screen runs on Windows with **Go + MinGW (CGO for raylib) + libmpv DLL + OpenGL**.
+
+The Windows build uses `go build -tags nocgo` so **go-mpv** loads `libmpv.dll` at runtime (no `mpv/client.h` package needed).
 
 ## 1. Install tools
 

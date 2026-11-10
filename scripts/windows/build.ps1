@@ -20,8 +20,8 @@ if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
     throw "gcc not found. Install MSYS2 mingw-w64-x86_64-gcc and add mingw64\bin to PATH."
 }
 
-# raylib needs cgo; go-mpv can use purego+DLL on Windows when cgo is off for mpv,
-# but with CGO enabled it links normally if headers/libs are available.
+# raylib needs CGO. go-mpv with -tags nocgo loads libmpv.dll via purego
+# (no mpv/client.h / -lmpv required). Place libmpv.dll next to the exe.
 $env:CGO_ENABLED = "1"
 $env:GOOS = "windows"
 $env:GOARCH = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
@@ -30,8 +30,8 @@ Write-Host "go mod download..."
 go mod download
 
 $out = Join-Path $Root "ECE-screen.exe"
-Write-Host "compiling $out ..."
-go build -o $out .
+Write-Host "compiling $out (tags: nocgo) ..."
+go build -tags nocgo -o $out .
 
 # Ensure a libmpv DLL sits next to the exe (runtime load / PATH).
 $deps = Join-Path $Root "deps"
