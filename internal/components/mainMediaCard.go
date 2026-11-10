@@ -129,8 +129,8 @@ func mpvPropInt(name string, fallback int32) int32 {
 	if video.Player == nil {
 		return fallback
 	}
-	s, err := video.Player.GetPropertyString(name)
-	if err != nil || s == "" {
+	s := video.Player.GetPropertyString(name)
+	if s == "" {
 		return fallback
 	}
 	n, err := strconv.Atoi(s)
