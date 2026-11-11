@@ -1,6 +1,6 @@
 # Libraries (`lib/*`)
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-11_
 
 ## `lib/fonts` (package `lib`, file `arabic.go`)
 
