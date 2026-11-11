@@ -5,6 +5,9 @@ _Last updated: 2026-11-10_
 
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
+## 2026-11-11
+- Windows: export NVIDIA Optimus / AMD PowerXpress high-performance GPU flags (`gpu_windows.go`) so hybrid systems prefer the discrete adapter; document Graphics settings override.
+
 ## 2026-11-10
 - Windows video: embed libmpv with `wid` into a `WS_CHILD` over the media card (`MpvInitWithWid`, `InitVideoHost`). Opaque raylib window; no punch-hole / topmost overlay. Docs: components, architecture, libraries, windows README.
 - Windows video black-hole fix: disable `FlagWindowTransparent`, park mpv off-screen at start, place card-sized HWND with Win32 `HWND_TOPMOST` (re-assert each tick). Docs: components, architecture, windows README.

@@ -41,6 +41,8 @@ Unit tests exist for `lib/fonts` (`Reshape`), `lib/emoji` (`Split`, nil atlas) a
 
 **Windows:** Go + MSYS2 MinGW (`mingw-w64-x86_64-gcc`) + `libmpv-2.dll` (or `libmpv.dll`) in `deps\` next to the exe + OpenGL. Optional: ffmpeg (`ffprobe`) on PATH. See [`scripts/windows/README.md`](../scripts/windows/README.md).
 
+**Windows hybrid GPU:** if the board runs on the iGPU, add `ECE-screen.exe` under **Settings → System → Display → Graphics → High performance**, and/or NVIDIA/AMD control panel “High-performance processor”. The EXE also exports Optimus / PowerXpress high-performance flags (`gpu_windows.go`).
+
 **Media tip:** prefer H.264 (or HEVC) in `.mp4` for the main card. A 1920×1080 `.mov` is fine when it is H.264/HEVC; ProRes / Animation / high-bitrate mezzanine `.mov` files still decode heavily even after the GPU layout path and can stutter on the kiosk machine. Remux/transcode with ffmpeg if needed:
 `ffmpeg -i input.mov -c:v libx264 -pix_fmt yuv420p -c:a aac output.mp4`
 

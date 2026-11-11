@@ -49,3 +49,4 @@ Or Task Scheduler → At log on → start that bat.
 - Working directory must contain `pb_data\` (created on first run) and `resources\fonts\twemoji`.
 - Optional `.env` (`FPS`, `ZOOM`, …) is loaded by `run.ps1`.
 - Video on Windows: opaque UI + libmpv embedded (`wid`) into a child window over the media card (Linux-style transparent hole-punch does not work on DWM).
+- Discrete GPU: the build exports `NvOptimusEnablement` / `AmdPowerXpressRequestHighPerformance`. Also set **Settings → System → Display → Graphics** → add `ECE-screen.exe` → **High performance**.
