@@ -6,6 +6,7 @@ _Last updated: 2026-11-10_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-10
+- Windows video: embed libmpv with `wid` into a `WS_CHILD` over the media card (`MpvInitWithWid`, `InitVideoHost`). Opaque raylib window; no punch-hole / topmost overlay. Docs: components, architecture, libraries, windows README.
 - Windows video black-hole fix: disable `FlagWindowTransparent`, park mpv off-screen at start, place card-sized HWND with Win32 `HWND_TOPMOST` (re-assert each tick). Docs: components, architecture, windows README.
 - Windows video: use borderless on-top mpv overlay sized to the main media card (OpenGL/DWM punch-hole stays black; Alt+Tab showed video underneath). Linux keeps fullscreen + `PunchHole`. Docs: components, architecture, windows README.
 - Main media video centering: fit with `force_original_aspect_ratio` (no ffprobe), center inside the card, map raylib rect → mpv OSD size (Windows DPI/fullscreen mismatch). Docs: components.

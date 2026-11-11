@@ -34,7 +34,7 @@ Windows (native): `scripts/windows/{doctor,build,run}.ps1` or `build.bat` / `run
 - Arabic: raw text → `lib.Reshape()` → `rl.DrawTextEx`; **but** never pre-`Reshape` text given to `raycss.FitText`.
 - `MaskContainer` callbacks draw in local coords (0,0); `TextStyle.Spacing` must match `DrawTextEx` spacing.
 - GL calls on the main goroutine only; hooks mutate state under the component `mu`.
-- Do not modify `lib/video`, `video.MpvInit()`, or the commented blend-mode block in `main.go`.
+- Do not change Linux `video.MpvInit()` behaviour; Windows uses `MpvInitWithWid` + `InitVideoHost`. Leave the commented blend-mode block in `main.go`.
 
 ## Mandatory documentation rules
 

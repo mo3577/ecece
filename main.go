@@ -23,21 +23,19 @@ var arabicFontData []byte
 
 func main() {
 	pb := db.InitPocketBase()
-	video.Player = video.MpvInit()
-	defer video.Player.TerminateDestroy()
-	// Windows cannot punch through OpenGL alpha reliably; park the mpv
-	// window until main-media playVideo places a card-sized overlay.
-	if runtime.GOOS == "windows" {
-		_ = video.Player.SetPropertyString("fullscreen", "no")
-		_ = video.Player.SetPropertyString("border", "no")
-		_ = video.Player.SetPropertyString("ontop", "no")
-		_ = video.Player.SetPropertyString("title", "ECE-screen-mpv")
-		_ = video.Player.SetPropertyString("geometry", "1x1+-32000+-32000")
-		_ = video.Player.SetPropertyString("window-opacity", "0")
-	}
 
-	initRaylib()
+	if runtime.GOOS == "windows" {
+		// Raylib first so we can create a WS_CHILD host, then embed libmpv via wid.
+		initRaylib()
+		wid := components.InitVideoHost()
+		video.Player = video.MpvInitWithWid(wid)
+	} else {
+		video.Player = video.MpvInit()
+		initRaylib()
+	}
+	defer video.Player.TerminateDestroy()
 	defer rl.CloseWindow()
+	defer components.DestroyVideoHost()
 
 	font := lib.LoadFont(arabicFontData)
 	emojiAtlas := emoji.Load(resourceDir("resources/fonts/twemoji"))
@@ -101,7 +99,7 @@ func initRaylib() {
 	}
 	rl.SetTraceLogLevel(logLevel)
 	// Transparent framebuffer + punch-hole works on Linux compositors.
-	// On Windows it leaves a black hole (DWM ignores GL alpha), so stay opaque.
+	// On Windows DWM ignores GL alpha (black hole), so stay opaque and embed mpv.
 	if runtime.GOOS != "windows" {
 		rl.SetConfigFlags(rl.FlagWindowTransparent)
 	}

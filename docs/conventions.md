@@ -1,6 +1,6 @@
 # Conventions & invariants
 
-_Last updated: 2026-10-24_
+_Last updated: 2026-11-11_
 
 ## Critical invariants
 
@@ -15,7 +15,7 @@ _Last updated: 2026-10-24_
 
 ## Do not touch
 
-- `lib/video` and `video.MpvInit()` in `main.go`.
+- `video.MpvInit()` behaviour on Linux (idle/force-window/fullscreen). Windows may use `MpvInitWithWid` after raylib + `InitVideoHost`.
 - The commented-out/odd blend-mode block in `main.go` (`BeginBlendMode`/`SetBlendFactorsSeparate`/`EndBlendMode`) is a deliberate reference; don't remove or "clean up".
 
 ## Code style

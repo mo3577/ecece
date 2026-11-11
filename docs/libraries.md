@@ -26,4 +26,4 @@ _Last updated: 2026-11-10_
 
 ## `lib/video` (do not modify)
 
-`Player *mpv.Mpv` global, `MpvInit()` (idle, force-window, fullscreen, transparent-black bg, 400 ms sleep), `Resolution(path)` via `ffprobe` (kept; unused by main-media layout), `Unload()` (`stop`), `IsIdle()` (`idle-active`). `mainMediaCard.go` drives playback: `hwdec=no`, clears margins, sets `vf` scale/pad (aspect-fit + card→OSD mapping) without changing this package.
+`Player *mpv.Mpv` global, `MpvInit()` (Linux: idle, force-window, fullscreen, 400 ms sleep), `MpvInitWithWid(wid)` (Windows: embed into parent HWND before `Initialize`), `Resolution(path)` via `ffprobe` (kept; unused by main-media layout), `Unload()` (`stop`), `IsIdle()` (`idle-active`). `mainMediaCard.go` drives playback (`hwdec=no`, Linux `vf` pad / Windows host sync).

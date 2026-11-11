@@ -2,7 +2,11 @@
 
 package components
 
-const mpvOverlayTitle = "ECE-screen-mpv"
+// InitVideoHost is a no-op outside Windows (Linux uses fullscreen + punch-hole).
+func InitVideoHost() int64 { return 0 }
 
-func placeMpvOverlay(x, y, w, h int32) {}
-func parkMpvOverlay()                   {}
+// SyncVideoHost is a no-op outside Windows.
+func SyncVideoHost(x, y, w, h int32, show bool) {}
+
+// DestroyVideoHost is a no-op outside Windows.
+func DestroyVideoHost() {}

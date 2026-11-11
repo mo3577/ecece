@@ -28,6 +28,30 @@ func MpvInit() *mpv.Mpv {
 	return m
 }
 
+// MpvInitWithWid initializes libmpv embedded into a native parent window (Windows HWND
+// truncated to 32-bit, or X11 Window). wid must be set before Initialize; used on
+// Windows so video paints inside a WS_CHILD of the raylib window instead of a
+// separate always-on-top / transparent punch-hole path.
+func MpvInitWithWid(wid int64) *mpv.Mpv {
+	m := mpv.New()
+	_ = m.SetOptionString("background-color", "0.0/0.0/0.0")
+	_ = m.SetOptionString("idle", "yes")
+	_ = m.SetOptionString("osc", "no")
+	_ = m.SetOptionString("input-default-bindings", "no")
+	_ = m.SetOptionString("input-vo-keyboard", "no")
+	_ = m.SetOptionString("keepaspect", "yes")
+	if wid != 0 {
+		if err := m.SetOption("wid", mpv.FormatInt64, wid); err != nil {
+			panic(fmt.Sprintf("Failed to set mpv wid: %v", err))
+		}
+	}
+	if err := m.Initialize(); err != nil {
+		panic(fmt.Sprintf("Failed to initialize MPV (wid): %v", err))
+	}
+	time.Sleep(time.Millisecond * 400)
+	return m
+}
+
 // Resolution returns the width and height of the first video stream in the file using ffprobe.
 func Resolution(path string) (int32, int32, error) {
 	out, err := exec.Command("ffprobe",
