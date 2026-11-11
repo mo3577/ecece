@@ -93,6 +93,18 @@ powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1
 
 Kiosk autostart: shortcut to `deploy\ece-screen-windows.bat` in the Startup folder (`shell:startup`).
 
+### Flutter admin dashboard
+
+Arabic admin UI for PocketBase content lives in [`admin/`](admin/):
+
+```bash
+cd admin
+flutter pub get
+flutter run -d chrome   # or: flutter run -d windows
+```
+
+Log in with the ECE-screen **superuser** against `http://IP:8090`. Details: [`admin/README.md`](admin/README.md).
+
 ---
 
 ## Setup & Running

@@ -6,6 +6,7 @@ _Last updated: 2026-11-10_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-11
+- Flutter admin dashboard in `admin/`: Arabic RTL UI over PocketBase (`_superusers` login) to CRUD Schedules, Stages, Sections, TickerBar, Professors, Notices, Media (with file upload). Docs: README, admin/README.
 - Windows: export NVIDIA Optimus / AMD PowerXpress high-performance GPU flags (`gpu_windows.go`) so hybrid systems prefer the discrete adapter; document Graphics settings override.
 
 ## 2026-11-10

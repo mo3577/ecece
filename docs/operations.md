@@ -1,6 +1,14 @@
 # Operations
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-11_
+
+## Flutter admin (`admin/`)
+
+Optional Arabic dashboard (Web / Windows) that talks to the same PocketBase as the board. Requires Flutter SDK and a running ECE-screen (port 8090). See [`admin/README.md`](../admin/README.md).
+
+```bash
+cd admin && flutter pub get && flutter run -d chrome
+```
 
 ## Windows
 
