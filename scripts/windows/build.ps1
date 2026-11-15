@@ -46,6 +46,9 @@ go mod download
 $out = Join-Path $Root "ECE-screen.exe"
 Write-Host "compiling $out (tags: nocgo) ..."
 go build -tags nocgo -o $out .
+if ($LASTEXITCODE -ne 0) {
+    throw "go build failed with exit code $LASTEXITCODE"
+}
 
 # Ensure a libmpv DLL sits next to the exe (runtime load / PATH).
 $deps = Join-Path $Root "deps"
