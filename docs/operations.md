@@ -1,14 +1,18 @@
 # Operations
 
-_Last updated: 2026-11-11_
+_Last updated: 2026-11-15_
 
-## Flutter admin (`admin/`)
+## Flutter admin (`admin/` — Android / iOS / Web / Windows)
 
-Optional Arabic dashboard (Web / Windows) that talks to the same PocketBase as the board. Requires Flutter SDK and a running ECE-screen (port 8090). See [`admin/README.md`](../admin/README.md).
+Arabic dashboard over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Same **Wi‑Fi only**: the board answers UDP discovery probes on port **28090** (`internal/discovery`) so the phone app finds `http://<lan-ip>:8090` without typing an IP. Admins manage content; only super can manage operators or view `AdminLogs`. First-time: PocketBase `_superusers` bootstrap or `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD`. See [`admin/README.md`](../admin/README.md).
 
 ```bash
-cd admin && flutter pub get && flutter run -d chrome
+cd admin && flutter pub get
+flutter run -d android   # or: ios / chrome / windows
+flutter build apk --release
 ```
+
+Allow inbound **UDP 28090** (and TCP 8090 on LAN) on the kiosk firewall if discovery fails.
 
 ## Windows
 
@@ -59,7 +63,7 @@ Unit tests exist for `lib/fonts` (`Reshape`), `lib/emoji` (`Split`, nil atlas) a
 | Var | Default | Notes |
 |---|---|---|
 | `FPS` | 60 | positive int |
-| `ZOOM` | 1.2 | float > 0; invalid values are logged and ignored |
+| `ZOOM` | 1.35 | float > 0; multiplied by `screenH/1080` for 4K scaling; invalid values logged/ignored |
 | `RL_LOG` | (warnings only) | `info` / `debug` restore raylib's verbose logging (default hides ~3000 emoji-load lines) |
 
 `.env.example` lists these. Kiosk autostart: Linux `deploy/ece-screen.service` (systemd user unit); Windows `deploy/ece-screen-windows.bat` (Startup folder / Task Scheduler).

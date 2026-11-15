@@ -37,3 +37,5 @@ Thumbs.db
 
 # keep the template
 !.env.example
+
+# Cloudflare tunnel binary downloads

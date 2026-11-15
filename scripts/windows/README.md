@@ -44,6 +44,10 @@ Use `deploy\ece-screen-windows.bat`:
 
 Or Task Scheduler → At log on → start that bat.
 
+## 4. Phone admin (same Wi‑Fi)
+
+Install ECE Admin (Flutter) on Android/iOS. With the board running, the app **auto-discovers** PocketBase via UDP port `28090` — no IP typing. If Windows Firewall prompts, allow ECE-screen for private networks (TCP 8090 + UDP 28090). Details: [`admin/README.md`](../../admin/README.md).
+
 ## Notes
 
 - Working directory must contain `pb_data\` (created on first run) and `resources\fonts\twemoji`.

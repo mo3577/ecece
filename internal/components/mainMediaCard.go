@@ -229,10 +229,16 @@ func (l *MainMediaCard) GetData(pb *pocketbase.PocketBase) error {
 		return err
 	}
 
+	// Center card: videos always, plus images marked main_only.
+	// Side card under professors uses the opposite set (images with main_only=false).
 	data := make([]MainMediaItem, 0, len(records))
 	for _, r := range records {
 		file := r.GetString("file")
 		if file == "" {
+			continue
+		}
+		vid := isVideo(file)
+		if !vid && !r.GetBool("main_only") {
 			continue
 		}
 		dur := r.GetInt("duration")
@@ -241,7 +247,7 @@ func (l *MainMediaCard) GetData(pb *pocketbase.PocketBase) error {
 		}
 		data = append(data, MainMediaItem{
 			FilePath: storagePath(pb, col.Id, r.Id, file),
-			IsVideo:  isVideo(file),
+			IsVideo:  vid,
 			Duration: dur,
 		})
 	}

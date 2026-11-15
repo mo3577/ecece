@@ -27,10 +27,15 @@ type TickerBarLayout struct {
 
 func GetTickerBarLayout(screenSize [2]int32, zoom float64) *TickerBarLayout {
 	barH := float32(math.Round(float64(screenSize[1]) * 0.05))
-	fs := float32(math.Round(float64(barH) * 0.70 * zoom))
-	if fs > barH*0.90 {
-		fs = barH * 0.90
+	// Bar height already tracks screen H; keep type large within the bar.
+	frac := 0.72 * zoom
+	if frac > 0.92 {
+		frac = 0.92
 	}
+	if frac < 0.70 {
+		frac = 0.70
+	}
+	fs := float32(math.Round(float64(barH) * frac))
 	return &TickerBarLayout{
 		BgRect: rl.Rectangle{
 			X:      0,

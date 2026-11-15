@@ -137,7 +137,12 @@ const collections = <CollectionDef>[
     fields: [
       FieldDef(key: 'file', label: 'الملف', kind: FieldKind.file, required: true),
       FieldDef(key: 'duration', label: 'المدة (ث)', kind: FieldKind.number, hint: 'للصور'),
-      FieldDef(key: 'main_only', label: 'الرئيسي فقط', kind: FieldKind.boolFlag),
+      FieldDef(
+        key: 'main_only',
+        label: 'للوسط فقط',
+        kind: FieldKind.boolFlag,
+        hint: 'مفعّل = كرت الوسط/الفيديو؛ معطّل = الصورة الجانبية تحت الأساتذة',
+      ),
       FieldDef(key: 'display_order', label: 'الترتيب', kind: FieldKind.number),
     ],
   ),

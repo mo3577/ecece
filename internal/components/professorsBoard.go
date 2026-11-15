@@ -49,7 +49,8 @@ func GetProfessorsBoardLayout(screenSize [2]int32, zoom float64) *ProfessorsBoar
 	bgHeight := contentBandHeight(screenSize[1]) - secH - int32(margin.Top)*3
 	bgWidth := mediaWidth(secH)
 
-	imgH := float32(math.Round(float64(bgHeight) * 0.48))
+	// Portrait slot (cover-crop) — separate from landscape Media cards / video.
+	imgH := float32(math.Round(float64(bgHeight) * 0.52))
 	imgW := float32(math.Round(float64(imgH) * (118.0 / 148.0)))
 	imgRadius := float32(math.Round(7 * zoom))
 
@@ -231,9 +232,9 @@ func (l *ProfessorsBoard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom floa
 			infoX := pad + l.imgW + gap
 			infoW := l.BgRect.Width - infoX - pad
 
-			nameFontSize := float32(math.Round(30 * zoom))
-			roleFontSize := float32(math.Round(28 * zoom))
-			bioFontSize := float32(math.Round(24 * zoom))
+			nameFontSize := float32(math.Round(34 * zoom))
+			roleFontSize := float32(math.Round(30 * zoom))
+			bioFontSize := float32(math.Round(26 * zoom))
 
 			nameLineH := rl.MeasureTextEx(*font, "|", nameFontSize, 0).Y + 2
 			roleLineH := rl.MeasureTextEx(*font, "|", roleFontSize, 0).Y + 2

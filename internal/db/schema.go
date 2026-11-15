@@ -7,13 +7,14 @@ import (
 	"image/color"
 	"image/png"
 	"log"
+	"os"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
-// Collection names — must match the names used by internal/components.
+// Collection names — must match the names used by internal/components / Flutter admin.
 const (
 	colSchedules  = "Schedules"
 	colStages     = "Stages"
@@ -22,7 +23,18 @@ const (
 	colProfessors = "Professors"
 	colNotices    = "Notices"
 	colMedia      = "Media"
+	colAdmins     = "Admins"
+	colAdminLogs  = "AdminLogs"
 )
+
+// API rule: any authenticated Flutter admin (Admins auth collection).
+const ruleAdminAuthed = `@request.auth.id != "" && @request.auth.collectionName = "Admins"`
+
+// API rule: Admins with role=super only (manage operators + read logs).
+const ruleSuperOnly = `@request.auth.id != "" && @request.auth.collectionName = "Admins" && @request.auth.role = "super"`
+
+// API rule: super, or the authenticated admin viewing their own record.
+const ruleSuperOrSelf = `@request.auth.id != "" && @request.auth.collectionName = "Admins" && (@request.auth.role = "super" || @request.auth.id = id)`
 
 // arabicDays mirrors components.arabicDays (indexed by time.Weekday).
 // Keep both in sync: the Schedules `day` filter compares against these exact strings.
@@ -71,6 +83,15 @@ func EnsureSchema(app core.App) error {
 		return err
 	}
 	if err := ensureSchedulesStageMax(app); err != nil {
+		return err
+	}
+	if err := ensureAdminsCollection(app); err != nil {
+		return err
+	}
+	if err := ensureAdminLogsCollection(app); err != nil {
+		return err
+	}
+	if err := ensureContentAPIRules(app); err != nil {
 		return err
 	}
 	return nil
@@ -283,26 +304,36 @@ func buildMedia(c *core.Collection) {
 	c.Fields.Add(
 		&core.FileField{Name: "file", Required: true, MaxSelect: 1, MaxSize: 1 << 30}, // image or video
 		&core.NumberField{Name: "duration", OnlyInt: true, Min: ptr(0.0)},             // seconds (images), <=0 → 10
-		&core.BoolField{Name: "main_only"},                                            // true → not shown on the secondary card
+		&core.BoolField{Name: "main_only"}, // true → center/main card only; false → side card under professors
 		&core.NumberField{Name: "display_order", OnlyInt: true},
 	)
 }
 
 func seedMedia(app core.App, c *core.Collection) error {
-	for i, col := range []color.RGBA{{0, 86, 179, 255}, {231, 241, 255, 255}} {
-		data, err := placeholderPNG(1454, 1000, col)
+	// One center sample (main_only) + one side sample so the two cards differ.
+	seeds := []struct {
+		name     string
+		col      color.RGBA
+		mainOnly bool
+		order    int
+	}{
+		{"example-main.png", color.RGBA{0, 86, 179, 255}, true, 1},
+		{"example-side.png", color.RGBA{231, 241, 255, 255}, false, 2},
+	}
+	for _, s := range seeds {
+		data, err := placeholderPNG(1454, 1000, s.col)
 		if err != nil {
 			return err
 		}
-		f, err := filesystem.NewFileFromBytes(data, fmt.Sprintf("example-%d.png", i+1))
+		f, err := filesystem.NewFileFromBytes(data, s.name)
 		if err != nil {
 			return err
 		}
 		r := core.NewRecord(c)
 		r.Set("file", f)
 		r.Set("duration", 10)
-		r.Set("main_only", false)
-		r.Set("display_order", i+1)
+		r.Set("main_only", s.mainOnly)
+		r.Set("display_order", s.order)
 		if err := app.Save(r); err != nil {
 			return err
 		}
@@ -321,4 +352,121 @@ func placeholderPNG(w, h int, c color.RGBA) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// ── Admins (Flutter auth) + AdminLogs ────────────────────────────────────────
+
+func applyAdminsRules(c *core.Collection) {
+	c.ListRule = ptr(ruleSuperOnly)
+	c.ViewRule = ptr(ruleSuperOrSelf)
+	c.CreateRule = ptr(ruleSuperOnly)
+	c.UpdateRule = ptr(ruleSuperOnly)
+	c.DeleteRule = ptr(ruleSuperOnly)
+}
+
+func ensureAdminsCollection(app core.App) error {
+	if existing, _ := app.FindCollectionByNameOrId(colAdmins); existing != nil {
+		applyAdminsRules(existing)
+		if err := app.Save(existing); err != nil {
+			return fmt.Errorf("update %s rules: %w", colAdmins, err)
+		}
+		return seedFirstSuperFromEnv(app, existing)
+	}
+	c := core.NewAuthCollection(colAdmins)
+	applyAdminsRules(c)
+	c.Fields.Add(
+		&core.TextField{Name: "name"},
+		&core.SelectField{
+			Name:      "role",
+			Required:  true,
+			MaxSelect: 1,
+			Values:    []string{"super", "admin"},
+		},
+	)
+	if err := app.Save(c); err != nil {
+		return fmt.Errorf("create collection %s: %w", colAdmins, err)
+	}
+	log.Printf("db: created auth collection %q", colAdmins)
+	return seedFirstSuperFromEnv(app, c)
+}
+
+func seedFirstSuperFromEnv(app core.App, c *core.Collection) error {
+	email := os.Getenv("ECE_ADMIN_EMAIL")
+	pass := os.Getenv("ECE_ADMIN_PASSWORD")
+	if email == "" || pass == "" {
+		return nil
+	}
+	total, err := app.CountRecords(c)
+	if err != nil {
+		return err
+	}
+	if total > 0 {
+		return nil
+	}
+	r := core.NewRecord(c)
+	r.SetEmail(email)
+	r.SetPassword(pass)
+	r.Set("name", "Super Admin")
+	r.Set("role", "super")
+	r.SetVerified(true)
+	if err := app.Save(r); err != nil {
+		return fmt.Errorf("seed first super admin: %w", err)
+	}
+	log.Printf("db: seeded first super admin %q from ECE_ADMIN_EMAIL", email)
+	return nil
+}
+
+func ensureAdminLogsCollection(app core.App) error {
+	if existing, _ := app.FindCollectionByNameOrId(colAdminLogs); existing != nil {
+		existing.ListRule = ptr(ruleSuperOnly)
+		existing.ViewRule = ptr(ruleSuperOnly)
+		existing.CreateRule = ptr(ruleAdminAuthed)
+		existing.UpdateRule = nil
+		existing.DeleteRule = ptr(ruleSuperOnly)
+		if err := app.Save(existing); err != nil {
+			return fmt.Errorf("update %s rules: %w", colAdminLogs, err)
+		}
+		return nil
+	}
+	c := core.NewBaseCollection(colAdminLogs)
+	c.ListRule = ptr(ruleSuperOnly)
+	c.ViewRule = ptr(ruleSuperOnly)
+	c.CreateRule = ptr(ruleAdminAuthed)
+	c.UpdateRule = nil // immutable once written
+	c.DeleteRule = ptr(ruleSuperOnly)
+	c.Fields.Add(
+		&core.TextField{Name: "actor_email", Required: true},
+		&core.TextField{Name: "actor_role", Required: true},
+		&core.TextField{Name: "action", Required: true}, // create | update | delete
+		&core.TextField{Name: "collection", Required: true},
+		&core.TextField{Name: "record_id"},
+		&core.TextField{Name: "summary"},
+	)
+	if err := app.Save(c); err != nil {
+		return fmt.Errorf("create collection %s: %w", colAdminLogs, err)
+	}
+	log.Printf("db: created collection %q", colAdminLogs)
+	return nil
+}
+
+func ensureContentAPIRules(app core.App) error {
+	names := []string{
+		colStages, colSections, colSchedules, colTickerBar,
+		colProfessors, colNotices, colMedia,
+	}
+	for _, name := range names {
+		c, err := app.FindCollectionByNameOrId(name)
+		if err != nil || c == nil {
+			continue
+		}
+		c.ListRule = ptr(ruleAdminAuthed)
+		c.ViewRule = ptr(ruleAdminAuthed)
+		c.CreateRule = ptr(ruleAdminAuthed)
+		c.UpdateRule = ptr(ruleAdminAuthed)
+		c.DeleteRule = ptr(ruleAdminAuthed)
+		if err := app.Save(c); err != nil {
+			return fmt.Errorf("set API rules on %s: %w", name, err)
+		}
+	}
+	return nil
 }

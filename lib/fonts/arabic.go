@@ -277,8 +277,16 @@ func GetArabicCodepoints() []int32 {
 }
 
 func LoadFont(fontdata []byte) *rl.Font {
+	return LoadFontSize(fontdata, 64)
+}
+
+// LoadFontSize bakes Noto Kufi at the given pixel size (use 128 on 4K kiosks).
+func LoadFontSize(fontdata []byte, size int32) *rl.Font {
+	if size < 32 {
+		size = 32
+	}
 	cps := GetArabicCodepoints()
-	font := rl.LoadFontFromMemory(".ttf", fontdata, 64, cps)
+	font := rl.LoadFontFromMemory(".ttf", fontdata, size, cps)
 	rl.SetTextureFilter(font.Texture, rl.FilterBilinear)
 	return &font
 }

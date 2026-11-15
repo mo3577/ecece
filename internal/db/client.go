@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"mt-y0/ECE-screen/internal/discovery"
+
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -41,6 +43,8 @@ func InitPocketBase() *pocketbase.PocketBase {
 
 	select {
 	case <-ready:
+		// LAN beacon so Flutter admin can find http://<ip>:8090 without typing it.
+		_ = discovery.Start(discovery.HTTPPortFromArgs(os.Args))
 	case err := <-done:
 		if err != nil {
 			log.Fatalf("PocketBase failed to start: %v", err)

@@ -37,12 +37,17 @@ func main() {
 	defer rl.CloseWindow()
 	defer components.DestroyVideoHost()
 
-	font := lib.LoadFont(arabicFontData)
+	screenSize := [2]int32{int32(rl.GetScreenWidth()), int32(rl.GetScreenHeight())}
+	// Default ZOOM 1.35 (a bit larger than before); auto-scaled for 4K vs 1080.
+	zoom := components.ResolveZoom(screenSize[1], envFloat("ZOOM", 1.35))
+	fontPx := int32(64)
+	if screenSize[1] >= 1600 {
+		fontPx = 128 // sharper glyphs when UI text is large on 4K
+	}
+	font := lib.LoadFontSize(arabicFontData, fontPx)
 	emojiAtlas := emoji.Load(resourceDir("resources/fonts/twemoji"))
 	defer emojiAtlas.Unload()
 
-	screenSize := [2]int32{int32(rl.GetScreenWidth()), int32(rl.GetScreenHeight())}
-	zoom := envFloat("ZOOM", 1.2)
 	blue := rl.NewColor(0, 86, 179, 255)
 	lightBlue := rl.NewColor(231, 241, 255, 255)
 	bgColor := rl.NewColor(248, 249, 250, 255)

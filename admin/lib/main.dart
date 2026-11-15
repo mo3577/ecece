@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pb.dart';
+import 'screens/bootstrap_page.dart';
 import 'screens/login_page.dart';
 import 'screens/shell.dart';
 import 'theme.dart';
@@ -39,6 +40,17 @@ class _EceAdminAppState extends State<EceAdminApp> {
 
   @override
   Widget build(BuildContext context) {
+    Widget home;
+    if (!_session.ready) {
+      home = const Scaffold(body: Center(child: CircularProgressIndicator()));
+    } else if (!_session.isAuthed) {
+      home = LoginPage(session: _session);
+    } else if (_session.needsBootstrap) {
+      home = BootstrapPage(session: _session);
+    } else {
+      home = AdminShell(session: _session);
+    }
+
     return MaterialApp(
       title: 'ECE Admin',
       debugShowCheckedModeBanner: false,
@@ -48,11 +60,7 @@ class _EceAdminAppState extends State<EceAdminApp> {
         textDirection: TextDirection.rtl,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: !_session.ready
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _session.isAuthed
-              ? AdminShell(session: _session)
-              : LoginPage(session: _session),
+      home: home,
     );
   }
 }

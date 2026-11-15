@@ -182,8 +182,8 @@ func (l *NoticeBoard) Draw(font *rl.Font, emojiAtlas *emoji.Atlas, zoom float64,
 	raycss.DrawSoftShadow(l.BgRect, cardRadius*float32(zoom), shadowSegs)
 	if needsRender {
 		l.Mask.PreRender(rl.White, func() {
-			headerH := float32(math.Round(50.0 * zoom))
-			titleFS := float32(math.Round(float64(headerH) * 0.8))
+			headerH := float32(math.Round(56.0 * zoom))
+			titleFS := float32(math.Round(float64(headerH) * 0.82))
 			bodyPad := raycss.S(10).Scale(zoom)
 			imgMargin := raycss.SXY(0, 8).Scale(zoom)
 
