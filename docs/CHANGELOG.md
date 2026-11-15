@@ -6,6 +6,7 @@ _Last updated: 2026-11-15_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-15
+- Windows `build.ps1` / `doctor.ps1`: only prepend `C:\msys64\mingw64\bin` when `gcc.exe` is present; if the folder exists without gcc, print clear MSYS2 `pacman` install steps. Docs: operations, windows README.
 - Ensure Flutter admin `admin/ios/` is complete for Mac builds (`Podfile` + ios/README). Docs: admin/README.
 - LAN-only admin discovery: board UDP beacon `:28090` (`internal/discovery`); Flutter login auto-finds the server (no IP typing). Removed Cloudflare tunnel / off-LAN path. Docs: admin/README, operations, windows README.
 - Flutter admin mobile (Android/iOS platforms). Docs: admin/README, operations, windows README.

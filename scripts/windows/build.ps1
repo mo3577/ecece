@@ -6,18 +6,32 @@ Set-Location $Root
 
 Write-Host "ECE-screen Windows build" -ForegroundColor Cyan
 
-# Prefer MSYS2 mingw64 toolchain if present and gcc not already on PATH.
+# Prefer MSYS2 mingw64 toolchain if present with gcc.exe and gcc not already on PATH.
 $mingwBin = "C:\msys64\mingw64\bin"
-if (-not (Get-Command gcc -ErrorAction SilentlyContinue) -and (Test-Path $mingwBin)) {
-    $env:Path = "$mingwBin;" + $env:Path
-    Write-Host "Using MSYS2 mingw64: $mingwBin"
+$mingwGcc = Join-Path $mingwBin "gcc.exe"
+if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+    if (Test-Path $mingwGcc) {
+        $env:Path = "$mingwBin;" + $env:Path
+        Write-Host "Using MSYS2 mingw64: $mingwBin"
+    } elseif (Test-Path $mingwBin) {
+        Write-Host "WARNING: $mingwBin exists but gcc.exe is missing." -ForegroundColor Yellow
+        Write-Host "Open MSYS2 MINGW64 and run:" -ForegroundColor Yellow
+        Write-Host "  pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf" -ForegroundColor Yellow
+    }
 }
 
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
     throw "Go not found. Install from https://go.dev/dl"
 }
 if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
-    throw "gcc not found. Install MSYS2 mingw-w64-x86_64-gcc and add mingw64\bin to PATH."
+    throw @"
+gcc not found. Install the MinGW-w64 toolchain:
+
+1. Install MSYS2 from https://www.msys2.org
+2. Open MSYS2 MINGW64 and run:
+     pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+3. Add C:\msys64\mingw64\bin to your user PATH (or reopen this shell after install).
+"@
 }
 
 # raylib needs CGO. go-mpv with -tags nocgo loads libmpv.dll via purego

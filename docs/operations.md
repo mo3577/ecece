@@ -20,8 +20,8 @@ Native Windows build/run (Go + MinGW CGO + libmpv DLL):
 
 | Script | Purpose |
 |---|---|
-| `scripts/windows/doctor.ps1` | Check Go, gcc, libmpv DLL, ffprobe |
-| `scripts/windows/build.ps1` | `go build -tags nocgo -o ECE-screen.exe` (raylib CGO + mpv DLL) |
+| `scripts/windows/doctor.ps1` | Check Go, gcc, libmpv DLL, ffprobe (only auto-adds mingw64 when `gcc.exe` exists) |
+| `scripts/windows/build.ps1` | `go build -tags nocgo -o ECE-screen.exe` (raylib CGO + mpv DLL; warns if mingw64 lacks gcc) |
 | `scripts/windows/run.ps1` | Load `.env`, ensure PATH, launch |
 | `build.bat` / `run.bat` | Double-click wrappers |
 | `deploy/ece-screen-windows.bat` | Kiosk / Startup-folder launcher |

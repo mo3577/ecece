@@ -14,7 +14,8 @@ The Windows build uses `go build -tags nocgo` so **go-mpv** loads `libmpv.dll` a
    pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ffmpeg
    ```
 
-   Add `C:\msys64\mingw64\bin` to your user **PATH**.
+   Add `C:\msys64\mingw64\bin` to your user **PATH**.  
+   `build.ps1` / `doctor.ps1` only auto-prepend that folder when `gcc.exe` is present there; if the folder exists without gcc they print the `pacman` command above.
 
 3. **libmpv** — download a Windows `libmpv` build (e.g. from  
    https://sourceforge.net/projects/mpv-player-windows/files/libmpv/ )  

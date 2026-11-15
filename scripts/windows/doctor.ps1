@@ -19,14 +19,20 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
 }
 
 # Prefer MSYS2 mingw64 on PATH for this check (same as build.ps1).
+# Only prepend when gcc.exe is actually present under mingw64\bin.
 $mingwBin = "C:\msys64\mingw64\bin"
-if (-not (Get-Command gcc -ErrorAction SilentlyContinue) -and (Test-Path $mingwBin)) {
+$mingwGcc = Join-Path $mingwBin "gcc.exe"
+if (-not (Get-Command gcc -ErrorAction SilentlyContinue) -and (Test-Path $mingwGcc)) {
     $env:Path = "$mingwBin;" + $env:Path
 }
 $gcc = Get-Command gcc -ErrorAction SilentlyContinue
 if (-not $gcc) { $gcc = Get-Command x86_64-w64-mingw32-gcc -ErrorAction SilentlyContinue }
 if ($gcc) { Ok ("C compiler: " + $gcc.Source) }
-else { Fail "MinGW gcc not found - open MSYS2 MINGW64 and run: pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf" }
+elseif ((Test-Path $mingwBin) -and -not (Test-Path $mingwGcc)) {
+    Fail "$mingwBin exists but gcc.exe is missing - open MSYS2 MINGW64 and run: pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf"
+} else {
+    Fail "MinGW gcc not found - open MSYS2 MINGW64 and run: pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf"
+}
 
 $ff = Get-Command ffprobe -ErrorAction SilentlyContinue
 if ($ff) { Ok ("ffprobe: " + $ff.Source) }
