@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Admin talks to PocketBase over:
+  - HTTPS public tunnel (preferred for remote phones)
+  - HTTP on LAN / localhost while setting up the kiosk
+  Cleartext is allowed so http://192.168.x.x:8090 works on the same Wi‑Fi.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

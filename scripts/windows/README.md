@@ -44,6 +44,16 @@ Use `deploy\ece-screen-windows.bat`:
 
 Or Task Scheduler → At log on → start that bat.
 
+## 4. Remote phone admin (outside campus Wi‑Fi)
+
+Keep ECE-screen running, then in another PowerShell window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\remote-tunnel.ps1
+```
+
+Paste the printed `https://….trycloudflare.com` URL into the Android/iOS **ECE Admin** app server field. Details: [`admin/README.md`](../../admin/README.md).
+
 ## Notes
 
 - Working directory must contain `pb_data\` (created on first run) and `resources\fonts\twemoji`.

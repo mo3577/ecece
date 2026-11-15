@@ -2,13 +2,29 @@
 
 _Last updated: 2026-11-15_
 
-## Flutter admin (`admin/`)
+## Flutter admin (`admin/` — Android / iOS / Web / Windows)
 
-Optional Arabic dashboard (Web / Windows) over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Admins manage content; only super can manage operators or view `AdminLogs`. First-time: sign in with PocketBase `_superusers` to create the first super, or set `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` before boot. See [`admin/README.md`](../admin/README.md).
+Arabic dashboard over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Admins manage content; only super can manage operators or view `AdminLogs`. First-time: sign in with PocketBase `_superusers` to create the first super, or set `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` before boot. See [`admin/README.md`](../admin/README.md).
 
 ```bash
-cd admin && flutter pub get && flutter run -d chrome
+cd admin && flutter pub get
+flutter run -d android   # or: ios / chrome / windows
+flutter build apk --release
 ```
+
+### Remote edits (phone not on the kiosk LAN)
+
+The board still owns PocketBase on `:8090`. Phones off-campus need a reachable **HTTPS** URL to that process:
+
+1. Run ECE-screen on the display PC.
+2. Run a Cloudflare quick tunnel on the same PC:
+   - Windows: `powershell -ExecutionPolicy Bypass -File scripts\windows\remote-tunnel.ps1`
+   - Linux: `./scripts/remote-tunnel.sh`
+3. In ECE Admin, set **server URL** to the printed `https://….trycloudflare.com` value and sign in.
+
+Quick-tunnel URLs change every run. For a stable hostname, create a [Cloudflare named tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) pointing at `http://127.0.0.1:8090`, then set `ECE_PUBLIC_URL=https://your-host.example` in the board environment (logged at startup). Alternatives: Tailscale/ZeroTier and use the virtual IP as `http://100.x.x.x:8090`.
+
+Do **not** port-forward bare `:8090` to the public internet without TLS and strong `Admins` passwords.
 
 ## Windows
 

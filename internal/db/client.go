@@ -41,6 +41,11 @@ func InitPocketBase() *pocketbase.PocketBase {
 
 	select {
 	case <-ready:
+		if pub := os.Getenv("ECE_PUBLIC_URL"); pub != "" {
+			log.Printf("PocketBase public URL for phone admin: %s", pub)
+		} else {
+			log.Printf("PocketBase listening; for remote phone admin run scripts/windows/remote-tunnel.ps1 (or scripts/remote-tunnel.sh) and paste the https URL into ECE Admin")
+		}
 	case err := <-done:
 		if err != nil {
 			log.Fatalf("PocketBase failed to start: %v", err)
