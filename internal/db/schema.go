@@ -283,26 +283,36 @@ func buildMedia(c *core.Collection) {
 	c.Fields.Add(
 		&core.FileField{Name: "file", Required: true, MaxSelect: 1, MaxSize: 1 << 30}, // image or video
 		&core.NumberField{Name: "duration", OnlyInt: true, Min: ptr(0.0)},             // seconds (images), <=0 → 10
-		&core.BoolField{Name: "main_only"},                                            // true → not shown on the secondary card
+		&core.BoolField{Name: "main_only"}, // true → center/main card only; false → side card under professors
 		&core.NumberField{Name: "display_order", OnlyInt: true},
 	)
 }
 
 func seedMedia(app core.App, c *core.Collection) error {
-	for i, col := range []color.RGBA{{0, 86, 179, 255}, {231, 241, 255, 255}} {
-		data, err := placeholderPNG(1454, 1000, col)
+	// One center sample (main_only) + one side sample so the two cards differ.
+	seeds := []struct {
+		name     string
+		col      color.RGBA
+		mainOnly bool
+		order    int
+	}{
+		{"example-main.png", color.RGBA{0, 86, 179, 255}, true, 1},
+		{"example-side.png", color.RGBA{231, 241, 255, 255}, false, 2},
+	}
+	for _, s := range seeds {
+		data, err := placeholderPNG(1454, 1000, s.col)
 		if err != nil {
 			return err
 		}
-		f, err := filesystem.NewFileFromBytes(data, fmt.Sprintf("example-%d.png", i+1))
+		f, err := filesystem.NewFileFromBytes(data, s.name)
 		if err != nil {
 			return err
 		}
 		r := core.NewRecord(c)
 		r.Set("file", f)
 		r.Set("duration", 10)
-		r.Set("main_only", false)
-		r.Set("display_order", i+1)
+		r.Set("main_only", s.mainOnly)
+		r.Set("display_order", s.order)
 		if err := app.Save(r); err != nil {
 			return err
 		}

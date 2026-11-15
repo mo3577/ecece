@@ -53,7 +53,7 @@ Shared constants in `layout.go`: `tableBandFrac=0.28`, `contentBandFrac=0.67`, `
 | Table (N stage cards) | y=pad, h=`tableBandFrac*H−pad`; equal cards across width from `Stages`/`Sections` config (seed: stage 4 leftmost) |
 | Professors board | x=pad, y=`tableBandFrac*H+pad`, w=`secH*1.454`, h=`contentBandFrac*H − secH − 3pad`; **portrait** from `Professors.image` (cover-crop ≈52% board height) — not Media |
 | Secondary media | x=pad, bottom-aligned at `tickerTopFrac*H−pad`; **landscape images** from `Media` with `main_only=false` (no video) |
-| Main media | center card; **images + video** from `Media` (all records) |
+| Main media | center card; **`Media` with `main_only=true` + all videos** (side images with `main_only=false` stay on the left column only) |
 | Notice board | x=`pad+leftColW+pad+mainW+pad` to screen right−pad, same y/h as main media |
 | Ticker | bottom 5% of H, full width; font fills most of the bar |
 
