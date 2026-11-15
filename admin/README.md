@@ -25,13 +25,30 @@
 
 ## بناء الموبايل
 
+### Android
+
 ```bash
 cd admin
 flutter pub get
-flutter build apk --release          # Android
-flutter build ios --release          # iOS (يحتاج Mac + Xcode)
-flutter run -d android               # تطوير
+flutter build apk --release
+flutter run -d android
 ```
+
+### iOS (على Mac فقط)
+
+مجلد `admin/ios/` موجود في المستودع (Xcode + `Podfile`). على الـ Mac:
+
+```bash
+git clone <repo-url>
+cd <repo>/admin
+flutter pub get
+cd ios && pod install && cd ..
+flutter run -d <iphone>          # جهاز موصول + Developer Mode
+# أو:
+open ios/Runner.xcworkspace      # Signing: اختر Team في Xcode ثم Run
+```
+
+تفاصيل إضافية: [`ios/README.md`](ios/README.md). Bundle ID: `edu.ece.eceAdmin`.
 
 ## أول تشغيل للحسابات
 

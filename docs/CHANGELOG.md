@@ -6,6 +6,7 @@ _Last updated: 2026-11-15_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-15
+- Ensure Flutter admin `admin/ios/` is complete for Mac builds (`Podfile` + ios/README). Docs: admin/README.
 - LAN-only admin discovery: board UDP beacon `:28090` (`internal/discovery`); Flutter login auto-finds the server (no IP typing). Removed Cloudflare tunnel / off-LAN path. Docs: admin/README, operations, windows README.
 - Flutter admin mobile (Android/iOS platforms). Docs: admin/README, operations, windows README.
 - Flutter admin roles: auth collection `Admins` (`super` / `admin`) + `AdminLogs`; content API rules for Admins; super-only operators & activity log screens; `_superusers` bootstrap for first super (or `ECE_ADMIN_EMAIL`/`ECE_ADMIN_PASSWORD`). Docs: data-model, operations, admin/README.
