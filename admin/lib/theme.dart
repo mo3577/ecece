@@ -35,6 +35,7 @@ class EceTheme {
         backgroundColor: panel,
         foregroundColor: sand,
         elevation: 0,
+        centerTitle: false,
         titleTextStyle: GoogleFonts.ibmPlexSansArabic(
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -44,7 +45,18 @@ class EceTheme {
       cardTheme: CardThemeData(
         color: card,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: panel,
+        contentTextStyle: GoogleFonts.ibmPlexSansArabic(color: sand),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -67,11 +79,49 @@ class EceTheme {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: ink,
+      ),
       navigationRailTheme: const NavigationRailThemeData(
         backgroundColor: panel,
         selectedIconTheme: IconThemeData(color: accent),
         unselectedIconTheme: IconThemeData(color: sand),
         indicatorColor: Color(0x332BBBAD),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: panel,
+        indicatorColor: accent.withValues(alpha: 0.22),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return GoogleFonts.ibmPlexSansArabic(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? accent : sand.withValues(alpha: 0.75),
+          );
+        }),
+      ),
+      drawerTheme: const DrawerThemeData(backgroundColor: panel),
+      listTileTheme: ListTileThemeData(
+        iconColor: sand.withValues(alpha: 0.85),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((s) {
+          return s.contains(WidgetState.selected) ? accent : sand;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((s) {
+          return s.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.45)
+              : sand.withValues(alpha: 0.2);
+        }),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: panel,
+        selectedColor: accent.withValues(alpha: 0.28),
+        labelStyle: GoogleFonts.ibmPlexSansArabic(color: sand, fontSize: 13),
+        side: BorderSide(color: accent.withValues(alpha: 0.3)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

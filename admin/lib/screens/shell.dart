@@ -4,17 +4,20 @@ import '../collections.dart';
 import '../pb.dart';
 import '../theme.dart';
 import 'admins_page.dart';
+import 'dashboard_page.dart';
 import 'logs_page.dart';
 import 'records_page.dart';
 
 class _NavItem {
   const _NavItem({
+    required this.id,
     required this.title,
     required this.icon,
     required this.builder,
     this.superOnly = false,
   });
 
+  final String id;
   final String title;
   final IconData icon;
   final Widget Function(PbSession session, {required bool showAppBar}) builder;
@@ -37,8 +40,19 @@ class _AdminShellState extends State<AdminShell> {
 
   List<_NavItem> get _items {
     final items = <_NavItem>[
+      _NavItem(
+        id: '__home',
+        title: 'الرئيسية',
+        icon: Icons.dashboard_rounded,
+        builder: (s, {required showAppBar}) => DashboardPage(
+          session: s,
+          showAppBar: showAppBar,
+          onOpenCollection: _openById,
+        ),
+      ),
       for (final c in collections)
         _NavItem(
+          id: c.id,
           title: c.title,
           icon: c.icon,
           builder: (s, {required showAppBar}) => RecordsPage(
@@ -48,6 +62,7 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
       _NavItem(
+        id: '__admins',
         title: 'المشغّلون',
         icon: Icons.manage_accounts_rounded,
         superOnly: true,
@@ -57,6 +72,7 @@ class _AdminShellState extends State<AdminShell> {
         ),
       ),
       _NavItem(
+        id: '__logs',
         title: 'السجلات',
         icon: Icons.history_rounded,
         superOnly: true,
@@ -68,6 +84,37 @@ class _AdminShellState extends State<AdminShell> {
     ];
     if (widget.session.isSuper) return items;
     return items.where((e) => !e.superOnly).toList();
+  }
+
+  /// Compact bottom destinations for phones (home + common edits + more drawer).
+  List<_NavItem> get _mobilePrimary {
+    final items = _items;
+    final ids = {'__home', 'Schedules', 'Notices', 'Media'};
+    return items.where((e) => ids.contains(e.id)).toList();
+  }
+
+  void _openById(String id) {
+    final items = _items;
+    final i = items.indexWhere((e) => e.id == id);
+    if (i >= 0) setState(() => _index = i);
+  }
+
+  Future<void> _confirmLogout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تسجيل الخروج؟'),
+        content: const Text('ستحتاج لتسجيل الدخول مرة أخرى لإدارة المحتوى.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('خروج'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await widget.session.logout();
   }
 
   @override
@@ -101,41 +148,70 @@ class _AdminShellState extends State<AdminShell> {
                   color: EceTheme.sand.withValues(alpha: 0.6),
                 ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            widget.session.baseUrl,
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: EceTheme.sand.withValues(alpha: 0.4),
+                ),
+          ),
         ],
       ),
     );
 
     if (wide) {
-      return Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            labelType: NavigationRailLabelType.all,
-            leading: header,
-            trailing: Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: IconButton(
-                    tooltip: 'خروج',
-                    onPressed: () => widget.session.logout(),
-                    icon: const Icon(Icons.logout_rounded),
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              labelType: NavigationRailLabelType.all,
+              leading: header,
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'تحديث',
+                          onPressed: () => setState(() => _refreshTick++),
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                        IconButton(
+                          tooltip: 'خروج',
+                          onPressed: _confirmLogout,
+                          icon: const Icon(Icons.logout_rounded),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
+              destinations: [
+                for (final item in items)
+                  NavigationRailDestination(icon: Icon(item.icon), label: Text(item.title)),
+              ],
             ),
-            destinations: [
-              for (final item in items)
-                NavigationRailDestination(icon: Icon(item.icon), label: Text(item.title)),
-            ],
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: body),
-        ],
+            const VerticalDivider(width: 1),
+            Expanded(child: body),
+          ],
+        ),
       );
     }
+
+    final primary = _mobilePrimary;
+    final primaryIndex = () {
+      final id = items[_index].id;
+      final i = primary.indexWhere((e) => e.id == id);
+      return i < 0 ? 0 : i;
+    }();
 
     return Scaffold(
       key: _scaffoldKey,
@@ -162,13 +238,12 @@ class _AdminShellState extends State<AdminShell> {
           ),
           IconButton(
             tooltip: 'خروج',
-            onPressed: () => widget.session.logout(),
+            onPressed: _confirmLogout,
             icon: const Icon(Icons.logout_rounded),
           ),
         ],
       ),
       drawer: Drawer(
-        backgroundColor: EceTheme.panel,
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -181,6 +256,7 @@ class _AdminShellState extends State<AdminShell> {
                     for (var i = 0; i < items.length; i++)
                       ListTile(
                         selected: i == _index,
+                        selectedTileColor: EceTheme.accent.withValues(alpha: 0.12),
                         leading: Icon(items[i].icon),
                         title: Text(items[i].title),
                         onTap: () {
@@ -196,6 +272,17 @@ class _AdminShellState extends State<AdminShell> {
         ),
       ),
       body: body,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: primaryIndex,
+        onDestinationSelected: (i) {
+          final id = primary[i].id;
+          _openById(id);
+        },
+        destinations: [
+          for (final item in primary)
+            NavigationDestination(icon: Icon(item.icon), label: item.title),
+        ],
+      ),
     );
   }
 }

@@ -42,7 +42,27 @@ class _EceAdminAppState extends State<EceAdminApp> {
   Widget build(BuildContext context) {
     Widget home;
     if (!_session.ready) {
-      home = const Scaffold(body: Center(child: CircularProgressIndicator()));
+      home = Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [Color(0xFF0B1614), Color(0xFF0F1C1A), Color(0xFF122824)],
+            ),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tv_rounded, color: Color(0xFF2BBBAD), size: 40),
+                SizedBox(height: 16),
+                CircularProgressIndicator(),
+              ],
+            ),
+          ),
+        ),
+      );
     } else if (!_session.isAuthed) {
       home = LoginPage(session: _session);
     } else if (_session.needsBootstrap) {

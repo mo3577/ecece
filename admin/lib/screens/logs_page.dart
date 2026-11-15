@@ -4,6 +4,7 @@ import 'package:pocketbase/pocketbase.dart';
 
 import '../pb.dart';
 import '../theme.dart';
+import '../widgets/ui_states.dart';
 
 /// Super-only activity log from `AdminLogs`.
 class LogsPage extends StatefulWidget {
@@ -17,14 +18,22 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
+  final _search = TextEditingController();
   List<RecordModel> _rows = [];
   bool _loading = true;
   String? _error;
+  String _actionFilter = 'all';
 
   @override
   void initState() {
     super.initState();
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -54,6 +63,22 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
+  List<RecordModel> get _filtered {
+    final q = _search.text.trim().toLowerCase();
+    return _rows.where((r) {
+      final action = r.getStringValue('action');
+      if (_actionFilter != 'all' && action != _actionFilter) return false;
+      if (q.isEmpty) return true;
+      final blob = [
+        action,
+        r.getStringValue('collection'),
+        r.getStringValue('actor_email'),
+        r.getStringValue('summary'),
+      ].join(' ').toLowerCase();
+      return blob.contains(q);
+    }).toList();
+  }
+
   String _actionAr(String a) {
     switch (a) {
       case 'create':
@@ -80,6 +105,8 @@ class _LogsPageState extends State<LogsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: widget.showAppBar
@@ -91,51 +118,116 @@ class _LogsPageState extends State<LogsPage> {
               ],
             )
           : null,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_error!, style: const TextStyle(color: EceTheme.danger)),
-                  ),
-                )
-              : _rows.isEmpty
-                  ? const Center(child: Text('لا توجد سجلات بعد'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: _rows.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final r = _rows[i];
-                        final action = r.getStringValue('action');
-                        final collection = r.getStringValue('collection');
-                        final actor = r.getStringValue('actor_email');
-                        final role = r.getStringValue('actor_role');
-                        final summary = r.getStringValue('summary');
-                        return Card(
-                          child: ListTile(
-                            leading: Icon(
-                              action == 'delete'
-                                  ? Icons.delete_outline_rounded
-                                  : action == 'create'
-                                      ? Icons.add_circle_outline_rounded
-                                      : Icons.edit_outlined,
-                              color: action == 'delete' ? EceTheme.danger : EceTheme.accent,
-                            ),
-                            title: Text('${_actionAr(action)} · $collection'),
-                            subtitle: Text(
-                              [
-                                actor,
-                                role == 'super' ? 'سوبر' : 'أدمن',
-                                if (summary.isNotEmpty) summary,
-                                _when(r),
-                              ].where((e) => e.isNotEmpty).join(' · '),
-                            ),
-                          ),
-                        );
-                      },
+      body: Column(
+        children: [
+          if (!_loading && _error == null) ...[
+            ListSearchBar(
+              controller: _search,
+              hint: 'بحث في السجلات…',
+              onChanged: (_) => setState(() {}),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in const [
+                    ('all', 'الكل'),
+                    ('create', 'إضافة'),
+                    ('update', 'تعديل'),
+                    ('delete', 'حذف'),
+                  ])
+                    FilterChip(
+                      label: Text(entry.$2),
+                      selected: _actionFilter == entry.$1,
+                      onSelected: (_) => setState(() => _actionFilter = entry.$1),
                     ),
+                ],
+              ),
+            ),
+          ],
+          Expanded(
+            child: RefreshIndicator(
+              color: EceTheme.accent,
+              onRefresh: _reload,
+              child: _loading
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 160),
+                        Center(child: CircularProgressIndicator()),
+                      ],
+                    )
+                  : _error != null
+                      ? ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.5,
+                              child: ErrorState(message: _error!, onRetry: _reload),
+                            ),
+                          ],
+                        )
+                      : _rows.isEmpty
+                          ? ListView(
+                              children: const [
+                                SizedBox(height: 120),
+                                EmptyState(
+                                  icon: Icons.history_rounded,
+                                  title: 'لا توجد سجلات بعد',
+                                  subtitle: 'ستظهر هنا عمليات الإضافة والتعديل والحذف.',
+                                ),
+                              ],
+                            )
+                          : filtered.isEmpty
+                              ? ListView(
+                                  children: const [
+                                    SizedBox(height: 120),
+                                    EmptyState(
+                                      icon: Icons.search_off_rounded,
+                                      title: 'لا نتائج لهذا التصفية',
+                                    ),
+                                  ],
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (context, i) {
+                                    final r = filtered[i];
+                                    final action = r.getStringValue('action');
+                                    final collection = r.getStringValue('collection');
+                                    final actor = r.getStringValue('actor_email');
+                                    final role = r.getStringValue('actor_role');
+                                    final summary = r.getStringValue('summary');
+                                    return Card(
+                                      child: ListTile(
+                                        leading: Icon(
+                                          action == 'delete'
+                                              ? Icons.delete_outline_rounded
+                                              : action == 'create'
+                                                  ? Icons.add_circle_outline_rounded
+                                                  : Icons.edit_outlined,
+                                          color: action == 'delete'
+                                              ? EceTheme.danger
+                                              : EceTheme.accent,
+                                        ),
+                                        title: Text('${_actionAr(action)} · $collection'),
+                                        subtitle: Text(
+                                          [
+                                            actor,
+                                            role == 'super' ? 'سوبر' : 'أدمن',
+                                            if (summary.isNotEmpty) summary,
+                                            _when(r),
+                                          ].where((e) => e.isNotEmpty).join(' · '),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

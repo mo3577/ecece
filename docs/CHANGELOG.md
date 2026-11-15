@@ -6,6 +6,7 @@ _Last updated: 2026-11-15_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-15
+- Flutter admin UX polish: dashboard with collection counts, list search + pull-to-refresh, richer row subtitles/thumbnails, Arabic period labels, empty/error retry states, mobile bottom nav, password visibility, remembered email, logout confirm. Docs: admin/README, operations.
 - Default Flutter super admin `admin@ece.local` / `admin12345` when `Admins` empty (override `ECE_ADMIN_*`); stronger LAN discovery (UTF-8 probe retransmit + localhost health); Windows `allow-firewall.ps1` for TCP 8090 / UDP 28090; `run.ps1` copies `.env.example` on first run.
 - Windows: `gpu_windows.go` keeps only C declarations in the `import "C"` preamble (prose above `package main`); Go `//` comments above `import "C"` are fed to gcc and break MinGW C89 builds. `build.ps1` throws if `go build` fails.
 - Windows `build.ps1` / `doctor.ps1`: only prepend `C:\msys64\mingw64\bin` when `gcc.exe` is present; if the folder exists without gcc, print clear MSYS2 `pacman` install steps. Docs: operations, windows README.

@@ -4,7 +4,7 @@ _Last updated: 2026-11-15_
 
 ## Flutter admin (`admin/` — Android / iOS / Web / Windows)
 
-Arabic dashboard over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Same **Wi‑Fi only**: the board answers UDP discovery probes on port **28090** (`internal/discovery`) so the phone app finds `http://<lan-ip>:8090` without typing an IP. Admins manage content; only super can manage operators or view `AdminLogs`. First-time admin: defaults `admin@ece.local` / `admin12345` when `Admins` is empty (or set `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` in `.env`). See [`admin/README.md`](../admin/README.md).
+Arabic dashboard over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Same **Wi‑Fi only**: the board answers UDP discovery probes on port **28090** (`internal/discovery`) so the phone app finds `http://<lan-ip>:8090` without typing an IP. Home dashboard shows per-collection counts; lists support search, pull-to-refresh, and richer previews. Admins manage content; only super can manage operators or view `AdminLogs`. First-time admin: defaults `admin@ece.local` / `admin12345` when `Admins` is empty (or set `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` in `.env`). See [`admin/README.md`](../admin/README.md).
 
 ```bash
 cd admin && flutter pub get

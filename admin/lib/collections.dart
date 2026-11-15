@@ -48,6 +48,68 @@ const arabicDays = [
 
 const periodOptions = ['morning', 'evening', 'all'];
 
+String periodLabelAr(String period) {
+  switch (period) {
+    case 'morning':
+      return 'صباحي';
+    case 'evening':
+      return 'مسائي';
+    case 'all':
+      return 'الكل';
+    default:
+      return period;
+  }
+}
+
+/// Short secondary line for a list row (collection-aware).
+String recordSubtitle(CollectionDef def, Map<String, dynamic> data) {
+  String s(String key) {
+    final v = data[key];
+    if (v == null) return '';
+    final t = '$v'.trim();
+    return t;
+  }
+
+  switch (def.id) {
+    case 'Schedules':
+      final bits = <String>[
+        s('day'),
+        if (s('stage').isNotEmpty) 'مرحلة ${s('stage')}',
+        if (s('section').isNotEmpty) 'شعبة ${s('section')}',
+        if (s('hall').isNotEmpty) s('hall'),
+        if (s('start_time').isNotEmpty && s('end_time').isNotEmpty)
+          '${s('start_time')} – ${s('end_time')}',
+        if (data['is_exam'] == true) 'امتحان',
+      ].where((e) => e.isNotEmpty);
+      return bits.join(' · ');
+    case 'Stages':
+      return [
+        if (s('number').isNotEmpty) 'رقم ${s('number')}',
+        if (s('display_order').isNotEmpty) 'ترتيب ${s('display_order')}',
+      ].join(' · ');
+    case 'Sections':
+      return [
+        if (s('stage').isNotEmpty) 'مرحلة ${s('stage')}',
+        if (s('key').isNotEmpty) s('key'),
+        if (s('period').isNotEmpty) periodLabelAr(s('period')),
+      ].join(' · ');
+    case 'Professors':
+      return s('role');
+    case 'Notices':
+      final d = s('duration');
+      return d.isEmpty ? '' : 'مدة $d ث';
+    case 'Media':
+      final main = data['main_only'] == true;
+      final d = s('duration');
+      return [
+        main ? 'الوسط / الفيديو' : 'الجانب تحت الأساتذة',
+        if (d.isNotEmpty) '$d ث',
+      ].join(' · ');
+    default:
+      return '';
+  }
+}
+
 const collections = <CollectionDef>[
   CollectionDef(
     id: 'Schedules',

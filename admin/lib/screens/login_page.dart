@@ -20,6 +20,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _busy = false;
   bool _searching = false;
   bool _showManualUrl = false;
+  bool _obscure = true;
   String? _localError;
   String? _status;
   List<DiscoveredServer> _servers = [];
@@ -28,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _url.text = widget.session.baseUrl;
-    _email.text = 'admin@ece.local';
+    _email.text = widget.session.lastEmail;
     WidgetsBinding.instance.addPostFrameCallback((_) => _search());
   }
 
@@ -44,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!discoverySupported) {
       setState(() {
         _showManualUrl = true;
-        _status = 'أدخل عنوان السيرفر يدوياً (هذا الجهاز لا يدعم البحث التلقائي)';
+        _status = 'أدخل عنوان السيرفر يدوياً';
       });
       return;
     }
@@ -88,6 +89,7 @@ class _LoginPageState extends State<LoginPage> {
       _localError = null;
     });
     try {
+      await widget.session.rememberEmail(_email.text);
       await widget.session.login(
         url: url,
         email: _email.text,
@@ -102,6 +104,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final foundOk = _servers.isNotEmpty && !_searching;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -123,6 +127,8 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const Icon(Icons.tv_rounded, color: EceTheme.accent, size: 40),
+                      const SizedBox(height: 12),
                       Text(
                         'ECE Admin',
                         textAlign: TextAlign.center,
@@ -133,99 +139,71 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'إدارة محتوى الشاشة — نفس شبكة الـ Wi‑Fi',
+                        'إدارة محتوى شاشة القسم — نفس شبكة الـ Wi‑Fi',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: EceTheme.sand.withValues(alpha: 0.75),
                             ),
                       ),
                       const SizedBox(height: 20),
-                      if (_searching)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
-                      if (_status != null) ...[
-                        Text(
-                          _status!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: EceTheme.sand.withValues(alpha: 0.7),
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (_servers.length > 1) ...[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            for (final s in _servers)
-                              ChoiceChip(
-                                label: Text(s.url, textDirection: TextDirection.ltr),
-                                selected: _url.text == s.url,
-                                onSelected: (_) => setState(() => _url.text = s.url),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      if (_servers.length == 1) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: EceTheme.panel,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: EceTheme.accent.withValues(alpha: 0.35)),
-                          ),
-                          child: Text(
-                            _servers.first.url,
-                            textAlign: TextAlign.center,
-                            textDirection: TextDirection.ltr,
-                            style: const TextStyle(color: EceTheme.accent),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                      _DiscoveryBanner(
+                        searching: _searching,
+                        found: foundOk,
+                        status: _status,
+                        servers: _servers,
+                        selectedUrl: _url.text,
+                        onSelect: (url) => setState(() => _url.text = url),
+                        onRetry: _searching ? null : _search,
+                      ),
                       Align(
                         alignment: Alignment.center,
-                        child: TextButton.icon(
-                          onPressed: _searching ? null : _search,
-                          icon: const Icon(Icons.wifi_find_rounded, size: 18),
-                          label: const Text('إعادة البحث'),
+                        child: TextButton(
+                          onPressed: () => setState(() => _showManualUrl = !_showManualUrl),
+                          child: Text(_showManualUrl ? 'إخفاء العنوان اليدوي' : 'إدخال العنوان يدوياً'),
                         ),
                       ),
                       if (_showManualUrl) ...[
-                        const SizedBox(height: 8),
                         TextField(
                           controller: _url,
                           keyboardType: TextInputType.url,
                           textDirection: TextDirection.ltr,
                           decoration: const InputDecoration(
-                            labelText: 'عنوان السيرفر (يدوي)',
+                            labelText: 'عنوان السيرفر',
                             hintText: 'http://192.168.x.x:8090',
+                            prefixIcon: Icon(Icons.link_rounded),
                           ),
                         ),
-                      ] else
-                        TextButton(
-                          onPressed: () => setState(() => _showManualUrl = true),
-                          child: const Text('إدخال العنوان يدوياً'),
-                        ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                       TextField(
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         textDirection: TextDirection.ltr,
-                        decoration: const InputDecoration(labelText: 'البريد'),
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                          labelText: 'البريد',
+                          prefixIcon: Icon(Icons.mail_outline_rounded),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _password,
-                        obscureText: true,
+                        obscureText: _obscure,
                         textDirection: TextDirection.ltr,
                         onSubmitted: (_) => _busy ? null : _submit(),
-                        decoration: const InputDecoration(labelText: 'كلمة المرور'),
+                        decoration: InputDecoration(
+                          labelText: 'كلمة المرور',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
+                          suffixIcon: IconButton(
+                            tooltip: _obscure ? 'إظهار' : 'إخفاء',
+                            onPressed: () => setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
                       ),
                       if (_localError != null) ...[
                         const SizedBox(height: 12),
@@ -233,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                       const SizedBox(height: 22),
                       FilledButton(
-                        onPressed: _busy || _searching ? null : _submit,
+                        onPressed: _busy ? null : _submit,
                         child: _busy
                             ? const SizedBox(
                                 width: 22,
@@ -244,8 +222,8 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'التطبيق يبحث تلقائياً عن الشاشة على نفس الشبكة.\n'
-                        'حساب Admins (سوبر/أدمن). أول مرة: PocketBase superuser.',
+                        'الافتراضي أول مرة: admin@ece.local / admin12345\n'
+                        'غيّر كلمة المرور بعد أول دخول.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: EceTheme.sand.withValues(alpha: 0.55),
@@ -258,6 +236,103 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DiscoveryBanner extends StatelessWidget {
+  const _DiscoveryBanner({
+    required this.searching,
+    required this.found,
+    required this.status,
+    required this.servers,
+    required this.selectedUrl,
+    required this.onSelect,
+    required this.onRetry,
+  });
+
+  final bool searching;
+  final bool found;
+  final String? status;
+  final List<DiscoveredServer> servers;
+  final String selectedUrl;
+  final ValueChanged<String> onSelect;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = found
+        ? EceTheme.accent.withValues(alpha: 0.45)
+        : searching
+            ? EceTheme.sand.withValues(alpha: 0.2)
+            : EceTheme.danger.withValues(alpha: 0.35);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: EceTheme.panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              if (searching)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  found ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                  color: found ? EceTheme.accent : EceTheme.danger,
+                  size: 20,
+                ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  status ?? '',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: EceTheme.sand.withValues(alpha: 0.85),
+                      ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'إعادة البحث',
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+              ),
+            ],
+          ),
+          if (servers.length == 1) ...[
+            const SizedBox(height: 8),
+            Text(
+              servers.first.url,
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(color: EceTheme.accent, fontWeight: FontWeight.w600),
+            ),
+          ],
+          if (servers.length > 1) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final s in servers)
+                  ChoiceChip(
+                    label: Text(s.url, textDirection: TextDirection.ltr),
+                    selected: selectedUrl == s.url,
+                    onSelected: (_) => onSelect(s.url),
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

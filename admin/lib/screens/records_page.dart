@@ -6,6 +6,7 @@ import 'package:pocketbase/pocketbase.dart';
 import '../collections.dart';
 import '../pb.dart';
 import '../theme.dart';
+import '../widgets/ui_states.dart';
 
 class RecordsPage extends StatefulWidget {
   const RecordsPage({
@@ -24,6 +25,7 @@ class RecordsPage extends StatefulWidget {
 }
 
 class _RecordsPageState extends State<RecordsPage> {
+  final _search = TextEditingController();
   List<RecordModel> _rows = [];
   bool _loading = true;
   String? _error;
@@ -35,9 +37,16 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant RecordsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.def.id != widget.def.id) {
+      _search.clear();
       _reload();
     }
   }
@@ -67,12 +76,32 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
+  List<RecordModel> get _filtered {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _rows;
+    return _rows.where((r) {
+      final title = _titleOf(r).toLowerCase();
+      final sub = recordSubtitle(widget.def, r.data).toLowerCase();
+      return title.contains(q) || sub.contains(q) || r.id.toLowerCase().contains(q);
+    }).toList();
+  }
+
   String _titleOf(RecordModel r) {
     final key = widget.def.titleField;
     if (key == null) return r.id;
     final v = r.get<dynamic>(key);
     if (v == null || '$v'.isEmpty) return r.id;
     return '$v';
+  }
+
+  String? _fileUrl(RecordModel r, String field) {
+    final name = r.getStringValue(field);
+    if (name.isEmpty) return null;
+    try {
+      return widget.session.client.files.getUrl(r, name).toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _delete(RecordModel r) async {
@@ -92,14 +121,27 @@ class _RecordsPageState extends State<RecordsPage> {
       ),
     );
     if (ok != true) return;
-    await widget.session.client.collection(widget.def.id).delete(r.id);
-    await widget.session.logActivity(
-      action: 'delete',
-      collection: widget.def.id,
-      recordId: r.id,
-      summary: _titleOf(r),
-    );
-    await _reload();
+    try {
+      await widget.session.client.collection(widget.def.id).delete(r.id);
+      await widget.session.logActivity(
+        action: 'delete',
+        collection: widget.def.id,
+        recordId: r.id,
+        summary: _titleOf(r),
+      );
+      if (mounted) showAppSnack(context, 'تم الحذف');
+      await _reload();
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(
+          context,
+          e is ClientException
+              ? (e.response['message']?.toString() ?? 'فشل الحذف')
+              : e.toString(),
+          error: true,
+        );
+      }
+    }
   }
 
   Future<void> _openEditor({RecordModel? existing}) async {
@@ -112,11 +154,55 @@ class _RecordsPageState extends State<RecordsPage> {
         existing: existing,
       ),
     );
-    if (saved == true) await _reload();
+    if (saved == true) {
+      if (mounted) {
+        showAppSnack(context, existing == null ? 'تمت الإضافة' : 'تم الحفظ');
+      }
+      await _reload();
+    }
+  }
+
+  Widget? _leading(RecordModel r) {
+    for (final f in widget.def.fields.where((e) => e.kind == FieldKind.file)) {
+      final url = _fileUrl(r, f.key);
+      if (url == null) continue;
+      final lower = url.toLowerCase();
+      final isImage = lower.endsWith('.png') ||
+          lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.webp') ||
+          lower.endsWith('.gif');
+      if (!isImage) {
+        return CircleAvatar(
+          backgroundColor: EceTheme.panel,
+          child: Icon(Icons.videocam_rounded, color: EceTheme.accent.withValues(alpha: 0.9)),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          url,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(Icons.broken_image_outlined),
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      backgroundColor: EceTheme.panel,
+      child: Icon(widget.def.icon, color: EceTheme.accent, size: 22),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: widget.showAppBar
@@ -132,50 +218,131 @@ class _RecordsPageState extends State<RecordsPage> {
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_rounded),
         label: const Text('إضافة'),
-        backgroundColor: EceTheme.accent,
-        foregroundColor: EceTheme.ink,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(_error!, style: const TextStyle(color: EceTheme.danger)),
-                ))
-              : _rows.isEmpty
-                  ? const Center(child: Text('لا توجد سجلات بعد'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: _rows.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final r = _rows[i];
-                        return Card(
-                          child: ListTile(
-                            title: Text(_titleOf(r), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(
-                              r.id,
-                              style: TextStyle(color: EceTheme.sand.withValues(alpha: 0.45), fontSize: 12),
+      body: Column(
+        children: [
+          if (!_loading && _error == null)
+            ListSearchBar(
+              controller: _search,
+              hint: 'بحث في ${widget.def.title}…',
+              onChanged: (_) => setState(() {}),
+            ),
+          if (!_loading && _error == null && _rows.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  filtered.length == _rows.length
+                      ? '${_rows.length} سجل'
+                      : '${filtered.length} من ${_rows.length}',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: EceTheme.sand.withValues(alpha: 0.55),
+                      ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: RefreshIndicator(
+              color: EceTheme.accent,
+              onRefresh: _reload,
+              child: _loading
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 160),
+                        Center(child: CircularProgressIndicator()),
+                      ],
+                    )
+                  : _error != null
+                      ? ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.5,
+                              child: ErrorState(message: _error!, onRetry: _reload),
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ],
+                        )
+                      : _rows.isEmpty
+                          ? ListView(
                               children: [
-                                IconButton(
-                                  tooltip: 'تعديل',
-                                  onPressed: () => _openEditor(existing: r),
-                                  icon: const Icon(Icons.edit_rounded),
-                                ),
-                                IconButton(
-                                  tooltip: 'حذف',
-                                  onPressed: () => _delete(r),
-                                  icon: const Icon(Icons.delete_outline_rounded, color: EceTheme.danger),
+                                SizedBox(
+                                  height: MediaQuery.sizeOf(context).height * 0.5,
+                                  child: EmptyState(
+                                    icon: widget.def.icon,
+                                    title: 'لا توجد سجلات بعد',
+                                    subtitle: 'أضف أول عنصر ليظهر على الشاشة.',
+                                    actionLabel: 'إضافة',
+                                    onAction: () => _openEditor(),
+                                  ),
                                 ),
                               ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            )
+                          : filtered.isEmpty
+                              ? ListView(
+                                  children: [
+                                    SizedBox(
+                                      height: MediaQuery.sizeOf(context).height * 0.45,
+                                      child: EmptyState(
+                                        icon: Icons.search_off_rounded,
+                                        title: 'لا نتائج للبحث',
+                                        subtitle: 'جرّب كلمة أخرى أو امسح البحث.',
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (context, i) {
+                                    final r = filtered[i];
+                                    final sub = recordSubtitle(widget.def, r.data);
+                                    return Card(
+                                      child: ListTile(
+                                        leading: _leading(r),
+                                        title: Text(
+                                          _titleOf(r),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: sub.isEmpty
+                                            ? null
+                                            : Text(
+                                                sub,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: EceTheme.sand.withValues(alpha: 0.55),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              tooltip: 'تعديل',
+                                              onPressed: () => _openEditor(existing: r),
+                                              icon: const Icon(Icons.edit_rounded),
+                                            ),
+                                            IconButton(
+                                              tooltip: 'حذف',
+                                              onPressed: () => _delete(r),
+                                              icon: const Icon(
+                                                Icons.delete_outline_rounded,
+                                                color: EceTheme.danger,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        onTap: () => _openEditor(existing: r),
+                                      ),
+                                    );
+                                  },
+                                ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -246,7 +413,6 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
           }
           body[f.key] = num.parse(t);
         case FieldKind.file:
-          // file goes via multipart
           continue;
         case FieldKind.day:
         case FieldKind.period:
@@ -316,6 +482,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
         return SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(f.label),
+          subtitle: f.hint == null ? null : Text(f.hint!),
           value: _bools[f.key] ?? false,
           onChanged: (v) => setState(() => _bools[f.key] = v),
         );
@@ -341,7 +508,8 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
               : 'morning',
           decoration: InputDecoration(labelText: f.label),
           items: [
-            for (final p in periodOptions) DropdownMenuItem(value: p, child: Text(p)),
+            for (final p in periodOptions)
+              DropdownMenuItem(value: p, child: Text(periodLabelAr(p))),
           ],
           onChanged: (v) {
             if (v == null) return;
@@ -356,6 +524,15 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(f.label, style: Theme.of(context).textTheme.labelLarge),
+            if (f.hint != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                f.hint!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: EceTheme.sand.withValues(alpha: 0.55),
+                    ),
+              ),
+            ],
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => _pickFile(f.key),
@@ -385,7 +562,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? 'سجل جديد' : 'تعديل سجل'),
+      title: Text(widget.existing == null ? 'سجل جديد — ${widget.def.title}' : 'تعديل — ${widget.def.title}'),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(

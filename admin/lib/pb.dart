@@ -8,6 +8,7 @@ const _kUrl = 'ece_pb_url';
 const _kToken = 'ece_pb_token';
 const _kModel = 'ece_pb_model';
 const _kAuthCol = 'ece_pb_auth_col';
+const _kEmail = 'ece_pb_email';
 
 /// PocketBase auth collection names used by the Flutter admin.
 const authAdmins = 'Admins';
@@ -18,6 +19,7 @@ enum AdminRole { superAdmin, admin }
 class PbSession extends ChangeNotifier {
   PocketBase? _pb;
   String _baseUrl = 'http://127.0.0.1:8090';
+  String _lastEmail = 'admin@ece.local';
   bool _ready = false;
   String? _error;
   String _authCollection = authAdmins;
@@ -32,6 +34,7 @@ class PbSession extends ChangeNotifier {
   }
 
   String get baseUrl => _baseUrl;
+  String get lastEmail => _lastEmail;
   bool get ready => _ready;
   bool get isAuthed => _pb?.authStore.isValid ?? false;
   String? get error => _error;
@@ -61,6 +64,7 @@ class PbSession extends ChangeNotifier {
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     _baseUrl = prefs.getString(_kUrl) ?? _baseUrl;
+    _lastEmail = prefs.getString(_kEmail) ?? _lastEmail;
     _pb = PocketBase(_baseUrl);
     _authCollection = prefs.getString(_kAuthCol) ?? authAdmins;
     final token = prefs.getString(_kToken);
@@ -159,10 +163,23 @@ class PbSession extends ChangeNotifier {
     await prefs.setString(_kUrl, _baseUrl);
     await prefs.setString(_kToken, _pb!.authStore.token);
     await prefs.setString(_kAuthCol, collection);
+    final mail = email;
+    if (mail != null && mail.isNotEmpty) {
+      _lastEmail = mail;
+      await prefs.setString(_kEmail, mail);
+    }
     final record = _pb!.authStore.record;
     if (record != null) {
       await prefs.setString(_kModel, jsonEncode(record.toJson()));
     }
+  }
+
+  Future<void> rememberEmail(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return;
+    _lastEmail = trimmed;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kEmail, trimmed);
   }
 
   Future<void> logout() async {
