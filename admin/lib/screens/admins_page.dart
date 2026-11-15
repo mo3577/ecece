@@ -21,6 +21,7 @@ class _AdminsPageState extends State<AdminsPage> {
   List<RecordModel> _rows = [];
   bool _loading = true;
   String? _error;
+  String _roleFilter = 'all';
 
   @override
   void initState() {
@@ -61,9 +62,11 @@ class _AdminsPageState extends State<AdminsPage> {
 
   List<RecordModel> get _filtered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _rows;
     return _rows.where((r) {
-      final blob = '${r.getStringValue('name')} ${r.getStringValue('email')} ${r.getStringValue('role')}'
+      final role = r.getStringValue('role');
+      if (_roleFilter != 'all' && role != _roleFilter) return false;
+      if (q.isEmpty) return true;
+      final blob = '${r.getStringValue('name')} ${r.getStringValue('email')} $role'
           .toLowerCase();
       return blob.contains(q);
     }).toList();
@@ -156,12 +159,31 @@ class _AdminsPageState extends State<AdminsPage> {
       ),
       body: Column(
         children: [
-          if (!_loading && _error == null)
+          if (!_loading && _error == null) ...[
             ListSearchBar(
               controller: _search,
               hint: 'بحث بالاسم أو البريد…',
               onChanged: (_) => setState(() {}),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  for (final entry in const [
+                    ('all', 'الكل'),
+                    ('super', 'سوبر'),
+                    ('admin', 'أدمن'),
+                  ])
+                    FilterChip(
+                      label: Text(entry.$2),
+                      selected: _roleFilter == entry.$1,
+                      onSelected: (_) => setState(() => _roleFilter = entry.$1),
+                    ),
+                ],
+              ),
+            ),
+          ],
           Expanded(
             child: RefreshIndicator(
               color: EceTheme.accent,

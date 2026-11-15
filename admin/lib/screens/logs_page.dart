@@ -23,6 +23,7 @@ class _LogsPageState extends State<LogsPage> {
   bool _loading = true;
   String? _error;
   String _actionFilter = 'all';
+  String _collectionFilter = 'all';
 
   @override
   void initState() {
@@ -63,15 +64,27 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
+  List<String> get _collections {
+    final set = <String>{};
+    for (final r in _rows) {
+      final c = r.getStringValue('collection');
+      if (c.isNotEmpty) set.add(c);
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
   List<RecordModel> get _filtered {
     final q = _search.text.trim().toLowerCase();
     return _rows.where((r) {
       final action = r.getStringValue('action');
+      final collection = r.getStringValue('collection');
       if (_actionFilter != 'all' && action != _actionFilter) return false;
+      if (_collectionFilter != 'all' && collection != _collectionFilter) return false;
       if (q.isEmpty) return true;
       final blob = [
         action,
-        r.getStringValue('collection'),
+        collection,
         r.getStringValue('actor_email'),
         r.getStringValue('summary'),
       ].join(' ').toLowerCase();
@@ -127,7 +140,7 @@ class _LogsPageState extends State<LogsPage> {
               onChanged: (_) => setState(() {}),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -146,6 +159,33 @@ class _LogsPageState extends State<LogsPage> {
                 ],
               ),
             ),
+            if (_collections.isNotEmpty)
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilterChip(
+                        label: const Text('كل الجداول'),
+                        selected: _collectionFilter == 'all',
+                        onSelected: (_) => setState(() => _collectionFilter = 'all'),
+                      ),
+                    ),
+                    for (final c in _collections)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FilterChip(
+                          label: Text(c),
+                          selected: _collectionFilter == c,
+                          onSelected: (_) => setState(() => _collectionFilter = c),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           ],
           Expanded(
             child: RefreshIndicator(

@@ -1,7 +1,7 @@
 name: ece_admin
 description: ECE-screen admin dashboard (Flutter) for PocketBase content.
 publish_to: "none"
-version: 1.1.0+2
+version: 1.2.1+4
 
 environment:
   sdk: ^3.9.2
@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   pocketbase: ^0.26.0
   http: ^1.6.0
+  http_parser: ^4.1.2
   intl: ^0.20.3
   shared_preferences: ^2.5.5
   google_fonts: ^8.1.0

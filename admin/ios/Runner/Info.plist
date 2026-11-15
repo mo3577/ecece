@@ -53,6 +53,10 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>لاختيار صور وفيديوهات لعرضها على شاشة القسم</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>لحفظ الوسائط المتعلقة بشاشة القسم عند الحاجة</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>للعثور على شاشة ECE على نفس شبكة الـ Wi‑Fi وإدارة محتواها</string>
 	<key>NSBonjourServices</key>

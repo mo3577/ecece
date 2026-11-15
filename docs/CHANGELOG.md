@@ -6,6 +6,8 @@ _Last updated: 2026-11-15_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-15
+- Flutter admin: upload progress bar with live percentage while streaming media/files to PocketBase.
+- Flutter admin: fix media upload crash (stream file from path instead of `withData` OOM); collection filters + sort + detail sheet; iOS photo library usage strings; Android media read permissions. Docs: admin/README, operations.
 - Flutter admin UX polish: dashboard with collection counts, list search + pull-to-refresh, richer row subtitles/thumbnails, Arabic period labels, empty/error retry states, mobile bottom nav, password visibility, remembered email, logout confirm. Docs: admin/README, operations.
 - Default Flutter super admin `admin@ece.local` / `admin12345` when `Admins` empty (override `ECE_ADMIN_*`); stronger LAN discovery (UTF-8 probe retransmit + localhost health); Windows `allow-firewall.ps1` for TCP 8090 / UDP 28090; `run.ps1` copies `.env.example` on first run.
 - Windows: `gpu_windows.go` keeps only C declarations in the `import "C"` preamble (prose above `package main`); Go `//` comments above `import "C"` are fed to gcc and break MinGW C89 builds. `build.ps1` throws if `go build` fails.

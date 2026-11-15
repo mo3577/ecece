@@ -4,8 +4,11 @@ import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
 
 import '../collections.dart';
+import '../filters.dart';
 import '../pb.dart';
 import '../theme.dart';
+import '../upload.dart';
+import '../widgets/record_detail_sheet.dart';
 import '../widgets/ui_states.dart';
 
 class RecordsPage extends StatefulWidget {
@@ -29,10 +32,13 @@ class _RecordsPageState extends State<RecordsPage> {
   List<RecordModel> _rows = [];
   bool _loading = true;
   String? _error;
+  String _activeFilter = 'all';
+  String _sort = '';
 
   @override
   void initState() {
     super.initState();
+    _sort = widget.def.sort;
     _reload();
   }
 
@@ -47,6 +53,8 @@ class _RecordsPageState extends State<RecordsPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.def.id != widget.def.id) {
       _search.clear();
+      _activeFilter = 'all';
+      _sort = widget.def.sort;
       _reload();
     }
   }
@@ -58,7 +66,7 @@ class _RecordsPageState extends State<RecordsPage> {
     });
     try {
       final list = await widget.session.client.collection(widget.def.id).getFullList(
-            sort: widget.def.sort,
+            sort: _sort.isEmpty ? widget.def.sort : _sort,
           );
       if (!mounted) return;
       setState(() {
@@ -76,13 +84,23 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
+  List<RecordFilterOption> get _filterOptions => filtersFor(widget.def, _rows);
+
   List<RecordModel> get _filtered {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _rows;
-    return _rows.where((r) {
+    Iterable<RecordModel> list = _rows;
+    if (_activeFilter != 'all') {
+      final opt = _filterOptions.where((e) => e.id == _activeFilter);
+      if (opt.isNotEmpty) {
+        list = list.where(opt.first.matches);
+      }
+    }
+    if (q.isEmpty) return list.toList();
+    return list.where((r) {
       final title = _titleOf(r).toLowerCase();
       final sub = recordSubtitle(widget.def, r.data).toLowerCase();
-      return title.contains(q) || sub.contains(q) || r.id.toLowerCase().contains(q);
+      final blob = r.data.values.map((e) => '$e').join(' ').toLowerCase();
+      return title.contains(q) || sub.contains(q) || blob.contains(q) || r.id.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -162,20 +180,32 @@ class _RecordsPageState extends State<RecordsPage> {
     }
   }
 
+  Future<void> _openDetail(RecordModel r) async {
+    await showRecordDetailSheet(
+      context: context,
+      session: widget.session,
+      def: widget.def,
+      record: r,
+      onEdit: () => _openEditor(existing: r),
+      onDelete: () => _delete(r),
+    );
+  }
+
   Widget? _leading(RecordModel r) {
     for (final f in widget.def.fields.where((e) => e.kind == FieldKind.file)) {
+      final name = r.getStringValue(f.key);
       final url = _fileUrl(r, f.key);
       if (url == null) continue;
-      final lower = url.toLowerCase();
-      final isImage = lower.endsWith('.png') ||
-          lower.endsWith('.jpg') ||
-          lower.endsWith('.jpeg') ||
-          lower.endsWith('.webp') ||
-          lower.endsWith('.gif');
-      if (!isImage) {
+      if (isVideoFileName(name)) {
         return CircleAvatar(
           backgroundColor: EceTheme.panel,
           child: Icon(Icons.videocam_rounded, color: EceTheme.accent.withValues(alpha: 0.9)),
+        );
+      }
+      if (!isImageFileName(name)) {
+        return CircleAvatar(
+          backgroundColor: EceTheme.panel,
+          child: Icon(Icons.insert_drive_file_rounded, color: EceTheme.accent.withValues(alpha: 0.9)),
         );
       }
       return ClipRRect(
@@ -199,9 +229,41 @@ class _RecordsPageState extends State<RecordsPage> {
     );
   }
 
+  List<PopupMenuEntry<String>> _sortItems() {
+    switch (widget.def.id) {
+      case 'Schedules':
+        return const [
+          PopupMenuItem(value: 'day,stage,start_time', child: Text('اليوم ثم المرحلة')),
+          PopupMenuItem(value: 'stage,day,start_time', child: Text('المرحلة ثم اليوم')),
+          PopupMenuItem(value: '-created', child: Text('الأحدث أولاً')),
+          PopupMenuItem(value: 'subject', child: Text('المادة أ→ي')),
+        ];
+      case 'Media':
+        return const [
+          PopupMenuItem(value: 'display_order', child: Text('الترتيب')),
+          PopupMenuItem(value: '-created', child: Text('الأحدث أولاً')),
+          PopupMenuItem(value: 'main_only', child: Text('الوسط أولاً')),
+        ];
+      case 'Professors':
+      case 'Notices':
+      case 'Stages':
+      case 'Sections':
+        return const [
+          PopupMenuItem(value: 'display_order', child: Text('الترتيب')),
+          PopupMenuItem(value: '-created', child: Text('الأحدث أولاً')),
+        ];
+      default:
+        return const [
+          PopupMenuItem(value: '-created', child: Text('الأحدث أولاً')),
+          PopupMenuItem(value: 'created', child: Text('الأقدم أولاً')),
+        ];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
+    final filterOpts = _filterOptions;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -209,6 +271,16 @@ class _RecordsPageState extends State<RecordsPage> {
           ? AppBar(
               title: Text(widget.def.title),
               actions: [
+                PopupMenuButton<String>(
+                  tooltip: 'ترتيب',
+                  initialValue: _sort,
+                  onSelected: (v) {
+                    setState(() => _sort = v);
+                    _reload();
+                  },
+                  itemBuilder: (_) => _sortItems(),
+                  icon: const Icon(Icons.sort_rounded),
+                ),
                 IconButton(onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh_rounded)),
                 const SizedBox(width: 8),
               ],
@@ -221,27 +293,84 @@ class _RecordsPageState extends State<RecordsPage> {
       ),
       body: Column(
         children: [
-          if (!_loading && _error == null)
+          if (!_loading && _error == null) ...[
             ListSearchBar(
               controller: _search,
               hint: 'بحث في ${widget.def.title}…',
               onChanged: (_) => setState(() {}),
             ),
-          if (!_loading && _error == null && _rows.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  filtered.length == _rows.length
-                      ? '${_rows.length} سجل'
-                      : '${filtered.length} من ${_rows.length}',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: EceTheme.sand.withValues(alpha: 0.55),
+            if (filterOpts.isNotEmpty)
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilterChip(
+                        label: const Text('الكل'),
+                        selected: _activeFilter == 'all',
+                        onSelected: (_) => setState(() => _activeFilter = 'all'),
                       ),
+                    ),
+                    for (final f in filterOpts)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FilterChip(
+                          label: Text(f.label),
+                          selected: _activeFilter == f.id,
+                          onSelected: (_) => setState(() => _activeFilter = f.id),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
+            if (!widget.showAppBar)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: PopupMenuButton<String>(
+                  tooltip: 'ترتيب',
+                  initialValue: _sort,
+                  onSelected: (v) {
+                    setState(() => _sort = v);
+                    _reload();
+                  },
+                  itemBuilder: (_) => _sortItems(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sort_rounded, size: 18, color: EceTheme.sand.withValues(alpha: 0.7)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'ترتيب',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: EceTheme.sand.withValues(alpha: 0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (_rows.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    filtered.length == _rows.length
+                        ? '${_rows.length} سجل'
+                        : '${filtered.length} من ${_rows.length}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: EceTheme.sand.withValues(alpha: 0.55),
+                        ),
+                  ),
+                ),
+              ),
+          ],
           Expanded(
             child: RefreshIndicator(
               color: EceTheme.accent,
@@ -283,9 +412,14 @@ class _RecordsPageState extends State<RecordsPage> {
                                     SizedBox(
                                       height: MediaQuery.sizeOf(context).height * 0.45,
                                       child: EmptyState(
-                                        icon: Icons.search_off_rounded,
-                                        title: 'لا نتائج للبحث',
-                                        subtitle: 'جرّب كلمة أخرى أو امسح البحث.',
+                                        icon: Icons.filter_alt_off_rounded,
+                                        title: 'لا نتائج',
+                                        subtitle: 'غيّر البحث أو الفلتر.',
+                                        actionLabel: 'مسح الفلتر',
+                                        onAction: () => setState(() {
+                                          _search.clear();
+                                          _activeFilter = 'all';
+                                        }),
                                       ),
                                     ),
                                   ],
@@ -320,6 +454,11 @@ class _RecordsPageState extends State<RecordsPage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             IconButton(
+                                              tooltip: 'تفاصيل',
+                                              onPressed: () => _openDetail(r),
+                                              icon: const Icon(Icons.info_outline_rounded),
+                                            ),
+                                            IconButton(
                                               tooltip: 'تعديل',
                                               onPressed: () => _openEditor(existing: r),
                                               icon: const Icon(Icons.edit_rounded),
@@ -334,7 +473,7 @@ class _RecordsPageState extends State<RecordsPage> {
                                             ),
                                           ],
                                         ),
-                                        onTap: () => _openEditor(existing: r),
+                                        onTap: () => _openDetail(r),
                                       ),
                                     );
                                   },
@@ -368,6 +507,9 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
   final _files = <String, PlatformFile?>{};
   bool _busy = false;
   String? _error;
+  /// null = idle; 0–1 while a file upload is in flight.
+  double? _uploadProgress;
+  int _uploadPercent = 0;
 
   @override
   void initState() {
@@ -393,10 +535,23 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
     super.dispose();
   }
 
-  Future<void> _pickFile(String key) async {
-    final res = await FilePicker.pickFiles(withData: true);
-    if (res == null || res.files.isEmpty) return;
-    setState(() => _files[key] = res.files.first);
+  PickKind _pickKindFor(FieldDef f) {
+    if (widget.def.id == 'Media' && f.key == 'file') return PickKind.media;
+    if (f.key == 'image') return PickKind.image;
+    return PickKind.any;
+  }
+
+  Future<void> _pickFile(String key, FieldDef field) async {
+    try {
+      final picked = await pickUploadFile(kind: _pickKindFor(field));
+      if (picked == null) return;
+      setState(() {
+        _files[key] = picked;
+        _error = null;
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
   }
 
   Map<String, dynamic> _body() {
@@ -411,7 +566,9 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
             if (f.required) throw 'الحقل «${f.label}» مطلوب';
             continue;
           }
-          body[f.key] = num.parse(t);
+          final n = num.tryParse(t);
+          if (n == null) throw '«${f.label}» يجب أن يكون رقماً';
+          body[f.key] = n;
         case FieldKind.file:
           continue;
         case FieldKind.day:
@@ -425,30 +582,71 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
     return body;
   }
 
+  void _reportUploadFraction(double fraction) {
+    final pct = (fraction * 100).floor().clamp(0, 100);
+    if (!mounted) return;
+    if (_uploadProgress != null && pct == _uploadPercent) return;
+    setState(() {
+      _uploadProgress = fraction.clamp(0.0, 1.0);
+      _uploadPercent = pct;
+    });
+  }
+
   Future<void> _save() async {
     setState(() {
       _busy = true;
       _error = null;
+      _uploadProgress = null;
+      _uploadPercent = 0;
     });
     try {
       final body = _body();
-      final files = <http.MultipartFile>[];
+      final pending = <MapEntry<FieldDef, PlatformFile>>[];
       for (final f in widget.def.fields.where((e) => e.kind == FieldKind.file)) {
         final picked = _files[f.key];
-        if (picked?.bytes != null) {
-          files.add(http.MultipartFile.fromBytes(
-            f.key,
-            picked!.bytes!,
-            filename: picked.name,
-          ));
+        if (picked != null) {
+          pending.add(MapEntry(f, picked));
         } else if (f.required && widget.existing == null) {
           throw 'اختر ملفاً لـ «${f.label}»';
         }
       }
 
+      final sizes = [
+        for (final e in pending) e.value.size > 0 ? e.value.size : (e.value.bytes?.length ?? 0),
+      ];
+      final totalBytes = sizes.fold<int>(0, (a, b) => a + b);
+      final hasUpload = pending.isNotEmpty && totalBytes > 0;
+      if (hasUpload) {
+        setState(() {
+          _uploadProgress = 0;
+          _uploadPercent = 0;
+        });
+      }
+
+      final files = <http.MultipartFile>[];
+      var offset = 0;
+      for (var i = 0; i < pending.length; i++) {
+        final entry = pending[i];
+        final size = sizes[i];
+        final base = offset;
+        offset += size;
+        files.add(await toMultipartFile(
+          entry.key.key,
+          entry.value,
+          onProgress: hasUpload
+              ? uploadProgressAt(
+                  byteOffset: base,
+                  totalBytes: totalBytes,
+                  onFraction: _reportUploadFraction,
+                )
+              : null,
+        ));
+      }
+
       final col = widget.session.client.collection(widget.def.id);
       if (widget.existing == null) {
         final created = await col.create(body: body, files: files);
+        if (hasUpload) _reportUploadFraction(1);
         await widget.session.logActivity(
           action: 'create',
           collection: widget.def.id,
@@ -457,6 +655,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
         );
       } else {
         await col.update(widget.existing!.id, body: body, files: files);
+        if (hasUpload) _reportUploadFraction(1);
         await widget.session.logActivity(
           action: 'update',
           collection: widget.def.id,
@@ -470,9 +669,15 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
         _error = e is ClientException
             ? (e.response['message']?.toString() ?? e.toString())
             : e.toString();
+        _uploadProgress = null;
       });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          if (_error != null) _uploadProgress = null;
+        });
+      }
     }
   }
 
@@ -520,6 +725,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
       case FieldKind.file:
         final picked = _files[f.key];
         final existingName = widget.existing?.getStringValue(f.key);
+        final sizeLabel = formatBytes(picked?.size);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -535,15 +741,25 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
             ],
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () => _pickFile(f.key),
+              onPressed: _busy ? null : () => _pickFile(f.key, f),
               icon: const Icon(Icons.attach_file_rounded),
               label: Text(
-                picked?.name ??
-                    (existingName != null && existingName.isNotEmpty
+                picked != null
+                    ? '${picked.name}${sizeLabel.isEmpty ? '' : ' ($sizeLabel)'}'
+                    : (existingName != null && existingName.isNotEmpty
                         ? 'الملف الحالي: $existingName'
                         : 'اختيار ملف'),
               ),
             ),
+            if (widget.def.id == 'Media') ...[
+              const SizedBox(height: 6),
+              Text(
+                'الفيديو يُرفع بشكل متدفق (بدون تحميل كامل في الذاكرة). يُفضّل MP4 H.264.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: EceTheme.sand.withValues(alpha: 0.5),
+                    ),
+              ),
+            ],
           ],
         );
       case FieldKind.number:
@@ -573,6 +789,50 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
                 _field(f),
                 const SizedBox(height: 12),
               ],
+              if (_uploadProgress != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'جاري الرفع…',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: EceTheme.accent,
+                            ),
+                      ),
+                    ),
+                    Text(
+                      '$_uploadPercent%',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: EceTheme.accent,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: _uploadProgress,
+                    minHeight: 10,
+                    backgroundColor: EceTheme.ink.withValues(alpha: 0.45),
+                    color: EceTheme.accent,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ] else if (_busy) ...[
+                const SizedBox(height: 4),
+                const LinearProgressIndicator(minHeight: 4),
+                const SizedBox(height: 8),
+                Text(
+                  'جاري الحفظ…',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: EceTheme.sand.withValues(alpha: 0.65),
+                      ),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (_error != null)
                 Text(_error!, style: const TextStyle(color: EceTheme.danger)),
             ],
@@ -584,7 +844,7 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
         FilledButton(
           onPressed: _busy ? null : _save,
           child: _busy
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              ? Text(_uploadProgress != null ? 'رفع $_uploadPercent%' : 'حفظ…')
               : const Text('حفظ'),
         ),
       ],

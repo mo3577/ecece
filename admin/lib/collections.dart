@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'upload.dart';
+
 enum FieldKind { text, number, boolFlag, day, period, file }
 
 class FieldDef {
@@ -99,11 +101,15 @@ String recordSubtitle(CollectionDef def, Map<String, dynamic> data) {
       final d = s('duration');
       return d.isEmpty ? '' : 'مدة $d ث';
     case 'Media':
-      final main = data['main_only'] == true;
+      final file = s('file');
+      final video = isVideoFileName(file);
+      final main = data['main_only'] == true || video;
       final d = s('duration');
       return [
-        main ? 'الوسط / الفيديو' : 'الجانب تحت الأساتذة',
+        video ? 'فيديو' : 'صورة',
+        main ? 'الوسط' : 'الجانب تحت الأساتذة',
         if (d.isNotEmpty) '$d ث',
+        if (file.isNotEmpty) file,
       ].join(' · ');
     default:
       return '';
