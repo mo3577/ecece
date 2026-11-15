@@ -25,3 +25,16 @@ func TestMediaWidth(t *testing.T) {
 		t.Fatalf("mediaWidth(100)=%d", got)
 	}
 }
+
+func TestResolveZoom(t *testing.T) {
+	// 1080p keeps user zoom; 4K (2160) doubles it.
+	if got := ResolveZoom(1080, 1.35); got < 1.34 || got > 1.36 {
+		t.Fatalf("1080: %v", got)
+	}
+	if got := ResolveZoom(2160, 1.35); got < 2.69 || got > 2.71 {
+		t.Fatalf("2160: %v", got)
+	}
+	if got := ResolveZoom(2160, 0); got < 2.69 || got > 2.71 {
+		t.Fatalf("default: %v", got)
+	}
+}

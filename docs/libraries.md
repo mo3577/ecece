@@ -1,12 +1,12 @@
 # Libraries (`lib/*`)
 
-_Last updated: 2026-11-11_
+_Last updated: 2026-11-15_
 
 ## `lib/fonts` (package `lib`, file `arabic.go`)
 
 - `Registry map[rune]GlyphGroup` — Arabic letter → Isolated/Initial/Medial/Final presentation forms (FE-range) + `ConnectsToNext`. Covers the 28 base letters, hamza forms, ta marbuta, alef maqsura (ى), alef wasla. **Not covered:** Persian/Kurdish letters (پ چ ژ گ ڤ ێ ۆ ڕ ڵ), tatweel (U+0640).
 - `Reshape(string) string` — 3 steps: (1) contextual form selection skipping tashkeel; (2) lam-alef ligatures (FEF5–FEFC); (3) bidi: split into Arabic / non-Arabic runs, reverse each Arabic run, then reverse the run order. Output is ready for raylib's left-to-right renderer. Spaces and Latin/digits are "LTR runs".
-- `GetArabicCodepoints()` / `LoadFont(ttf []byte) *rl.Font` — bakes NotoKufi at size 64 with ASCII, Latin-1, general punctuation, Arabic (0600–06FF, 08A0–08FF), presentation forms A (FB50–FDFF) and B (FE70–FEFF); bilinear filter.
+- `GetArabicCodepoints()` / `LoadFont` / `LoadFontSize(ttf, size)` — bakes NotoKufi (default 64; **128 on 4K**) with ASCII, Latin-1, general punctuation, Arabic (0600–06FF, 08A0–08FF), presentation forms A (FB50–FDFF) and B (FE70–FEFF); bilinear filter.
 
 ## `lib/emoji`
 

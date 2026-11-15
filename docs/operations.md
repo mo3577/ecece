@@ -1,6 +1,6 @@
 # Operations
 
-_Last updated: 2026-11-11_
+_Last updated: 2026-11-15_
 
 ## Flutter admin (`admin/`)
 
@@ -59,7 +59,7 @@ Unit tests exist for `lib/fonts` (`Reshape`), `lib/emoji` (`Split`, nil atlas) a
 | Var | Default | Notes |
 |---|---|---|
 | `FPS` | 60 | positive int |
-| `ZOOM` | 1.2 | float > 0; invalid values are logged and ignored |
+| `ZOOM` | 1.35 | float > 0; multiplied by `screenH/1080` for 4K scaling; invalid values logged/ignored |
 | `RL_LOG` | (warnings only) | `info` / `debug` restore raylib's verbose logging (default hides ~3000 emoji-load lines) |
 
 `.env.example` lists these. Kiosk autostart: Linux `deploy/ece-screen.service` (systemd user unit); Windows `deploy/ece-screen-windows.bat` (Startup folder / Task Scheduler).

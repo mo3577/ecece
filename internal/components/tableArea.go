@@ -358,15 +358,15 @@ func (l *TableLayout) Draw(font *rl.Font, zoom float64, blue, lightBlue rl.Color
 		l.dirty.Store(true)
 	}
 
-	headerH := float32(math.Round(48.0 * zoom))
-	titleFS := float32(math.Round(36.0 * zoom))
-	secNameH := float32(math.Round(34.0 * zoom))
-	sLblFS := float32(math.Round(28.0 * zoom))
-	timeFS := float32(math.Round(20.0 * zoom))
-	subFS := float32(math.Round(24.0 * zoom))
-	hallFS := float32(math.Round(18.0 * zoom))
-	noLecFS := float32(math.Round(18.0 * zoom))
-	badgeFS := float32(math.Round(16.0 * zoom))
+	headerH := float32(math.Round(52.0 * zoom))
+	titleFS := float32(math.Round(40.0 * zoom))
+	secNameH := float32(math.Round(38.0 * zoom))
+	sLblFS := float32(math.Round(32.0 * zoom))
+	timeFS := float32(math.Round(22.0 * zoom))
+	subFS := float32(math.Round(28.0 * zoom))
+	hallFS := float32(math.Round(20.0 * zoom))
+	noLecFS := float32(math.Round(20.0 * zoom))
+	badgeFS := float32(math.Round(18.0 * zoom))
 	cardPad := raycss.SXY(8, 10).Scale(zoom)
 
 	if l.dirty.Swap(false) {

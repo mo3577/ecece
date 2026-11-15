@@ -1,6 +1,6 @@
 # Architecture
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-15_
 
 **ECE-screen** is a fullscreen (60 fps, raylib) department display board: today's lecture schedule, professors, rotating media (images + video), a notice board and a scrolling ticker. Go + raylib-go + embedded PocketBase (SQLite). Module path: `mt-y0/ECE-screen`, Go `1.26.2` (go.mod).
 
@@ -46,16 +46,16 @@ Rendering optimisation: each card draws into its own `MaskContainer` only when `
 
 ## Screen layout (fractions of screen H, `pad = 15*zoom`)
 
-Shared constants in `tableArea.go`: `tableBandFrac=0.28`, `contentBandFrac=0.67`, `secMediaFrac=0.55`, `tickerTopFrac=0.95`. Default `ZOOM=1.2`.
+Shared constants in `layout.go`: `tableBandFrac=0.28`, `contentBandFrac=0.67`, `secMediaFrac=0.55`, `tickerTopFrac=0.95`. Default `ZOOM=1.35`, then `ResolveZoom` multiplies by `screenH/1080` (so **4K / 2160p ≈ 2×** 1080p text). Font atlas uses size 128 when `H≥1600`.
 
 | Region | Position / size |
 |---|---|
 | Table (N stage cards) | y=pad, h=`tableBandFrac*H−pad`; equal cards across width from `Stages`/`Sections` config (seed: stage 4 leftmost) |
-| Professors board | x=pad, y=`tableBandFrac*H+pad`, w=`secH*1.454`, h=`contentBandFrac*H − secH − 3pad` where `secH = contentBandFrac*secMediaFrac*H`; portrait ≈ 48% of board height |
-| Secondary media | x=pad, bottom-aligned at `tickerTopFrac*H−pad`, size `secH*1.454 × secH` |
-| Main media | x=`secH*1.454 + pad`, y=`tableBandFrac*H+pad`, h=`contentBandFrac*H−2pad`, w=`h*1.454` |
+| Professors board | x=pad, y=`tableBandFrac*H+pad`, w=`secH*1.454`, h=`contentBandFrac*H − secH − 3pad`; **portrait** from `Professors.image` (cover-crop ≈52% board height) — not Media |
+| Secondary media | x=pad, bottom-aligned at `tickerTopFrac*H−pad`; **landscape images** from `Media` with `main_only=false` (no video) |
+| Main media | center card; **images + video** from `Media` (all records) |
 | Notice board | x=`pad+leftColW+pad+mainW+pad` to screen right−pad, same y/h as main media |
-| Ticker | bottom 5% of H, full width; font size scales with `ZOOM` (capped at 90% of bar height) |
+| Ticker | bottom 5% of H, full width; font fills most of the bar |
 
 `1.454` is a hard-coded media aspect ratio. Layout is computed once at start; window resize is not handled.
 

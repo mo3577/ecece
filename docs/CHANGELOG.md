@@ -5,6 +5,9 @@ _Last updated: 2026-11-10_
 
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
+## 2026-11-15
+- 4K-oriented UI scale: `ResolveZoom` (`screenH/1080`) with default `ZOOM=1.35`, larger table/professor/notice type, font atlas 128px on tall screens. Professors portraits stay cover-crop from `Professors`; side/center media stay `Media` (images vs images+video). Docs: architecture, operations, libraries, components.
+
 ## 2026-11-11
 - Flutter admin dashboard in `admin/`: Arabic RTL UI over PocketBase (`_superusers` login) to CRUD Schedules, Stages, Sections, TickerBar, Professors, Notices, Media (with file upload). Docs: README, admin/README.
 - Windows: export NVIDIA Optimus / AMD PowerXpress high-performance GPU flags (`gpu_windows.go`) so hybrid systems prefer the discrete adapter; document Graphics settings override.

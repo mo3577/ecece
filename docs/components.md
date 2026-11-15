@@ -1,6 +1,6 @@
 # Components (`internal/components`)
 
-_Last updated: 2026-11-10_
+_Last updated: 2026-11-15_
 
 
 All components live in package `components`. Shared layout in `layout.go` (`cardRadius`, `shadowSegs`, `mediaAspect=1.454`, band fractions). Shared draw helpers in `drawutil.go` (`containFit`, `stepFade`, `drawContainTexture`). Texture helpers in `texture.go` (`loadTexture`, `isVideo`). Paths in `paths.go`.
@@ -11,8 +11,8 @@ Common fields: `BgRect`, `Mask raycss.MaskContainer`, `mu sync.RWMutex`, `dirty 
 |---|---|---|---|
 | `tableArea.go` | `TableLayout` | `Stages` + `Sections` + `Schedules` | N class cards from `Stages` (ordered by `display_order`). Columns from that stage's `Sections` filtered by `period` (morning before 14:00 / evening after). Lectures from today's `Schedules`. Past rows hidden; exams highlighted and mirrored across same-period sections. |
 | `tickerBar.go` | `TickerBarLayout` | `TickerBar` | Concatenates all `text` fields with ` ~ ` separators, reshaped + emoji-split. Scrolls rightwards at `screenW/30` px/s; the text width is measured once per data change (under the lock). Two copies scroll across exactly one screen width apart (start to start); when one's start reaches the right corner it wraps to the left corner, keeping the distance (period = max(screenW, textW)). Blue bar, white text. |
-| `professorsBoard.go` | `ProfessorsBoard` | `Professors` (sorted `display_order`) | Cycles every fixed 20 s (`profCycleDuration`). Cropped (cover-fit) photo in its own `imgMask`, name / uppercase role / justified bio. Latin text path (no Reshape of whole card; `FitText` reshapes internally). |
-| `secMediaCard.go` | `SecondaryMediaCard` | `Media` where `main_only = false`, images only | Contain-fit image, per-item `duration` (default 10 s). Starts at index 1 so it is out of phase with main media. |
+| `professorsBoard.go` | `ProfessorsBoard` | `Professors` (sorted `display_order`) | Cycles every 20 s. **Portrait** cover-crop (~52% card height, 118∶148) from `Professors.image` — not the Media gallery. Name / role / bio beside the photo. |
+| `secMediaCard.go` | `SecondaryMediaCard` | `Media` where `main_only = false`, images only | Landscape contain-fit under the professors column; separate from portraits and from main/video card. Starts at index 1 (phase-offset from main). |
 | `mainMediaCard.go` | `MainMediaCard` | `Media` (all) | Images (contain-fit) or video. `playVideo()` (`hwdec=no`). **Linux:** fullscreen mpv under transparent `PunchHole`. **Windows:** libmpv `wid` embedded in a `WS_CHILD` sized to the card (`InitVideoHost` / `SyncVideoHost`). `TickVideo()` from `main`. End after real playback (or 15 s load timeout); lone video replays. |
 | `noticeBoard.go` | `NoticeBoard` | `Notices` (sorted `display_order`) | Header "📢اعلانات القسم", body = optional image (top half, contain-fit) + RTL centred text via `FitText` with `UseEmoji`. Text prefixed with 📌. Per-item `duration` (default 10 s). |
 
