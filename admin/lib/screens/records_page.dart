@@ -8,10 +8,16 @@ import '../pb.dart';
 import '../theme.dart';
 
 class RecordsPage extends StatefulWidget {
-  const RecordsPage({super.key, required this.session, required this.def});
+  const RecordsPage({
+    super.key,
+    required this.session,
+    required this.def,
+    this.showAppBar = true,
+  });
 
   final PbSession session;
   final CollectionDef def;
+  final bool showAppBar;
 
   @override
   State<RecordsPage> createState() => _RecordsPageState();
@@ -87,6 +93,12 @@ class _RecordsPageState extends State<RecordsPage> {
     );
     if (ok != true) return;
     await widget.session.client.collection(widget.def.id).delete(r.id);
+    await widget.session.logActivity(
+      action: 'delete',
+      collection: widget.def.id,
+      recordId: r.id,
+      summary: _titleOf(r),
+    );
     await _reload();
   }
 
@@ -107,13 +119,15 @@ class _RecordsPageState extends State<RecordsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(widget.def.title),
-        actions: [
-          IconButton(onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh_rounded)),
-          const SizedBox(width: 8),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: Text(widget.def.title),
+              actions: [
+                IconButton(onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh_rounded)),
+                const SizedBox(width: 8),
+              ],
+            )
+          : null,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_rounded),
@@ -268,9 +282,21 @@ class _RecordEditorDialogState extends State<_RecordEditorDialog> {
 
       final col = widget.session.client.collection(widget.def.id);
       if (widget.existing == null) {
-        await col.create(body: body, files: files);
+        final created = await col.create(body: body, files: files);
+        await widget.session.logActivity(
+          action: 'create',
+          collection: widget.def.id,
+          recordId: created.id,
+          summary: widget.def.title,
+        );
       } else {
         await col.update(widget.existing!.id, body: body, files: files);
+        await widget.session.logActivity(
+          action: 'update',
+          collection: widget.def.id,
+          recordId: widget.existing!.id,
+          summary: widget.def.title,
+        );
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {

@@ -4,7 +4,7 @@ _Last updated: 2026-11-15_
 
 ## Flutter admin (`admin/`)
 
-Optional Arabic dashboard (Web / Windows) that talks to the same PocketBase as the board. Requires Flutter SDK and a running ECE-screen (port 8090). See [`admin/README.md`](../admin/README.md).
+Optional Arabic dashboard (Web / Windows) over the same PocketBase, with **super** vs **admin** roles (`Admins` auth collection). Admins manage content; only super can manage operators or view `AdminLogs`. First-time: sign in with PocketBase `_superusers` to create the first super, or set `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` before boot. See [`admin/README.md`](../admin/README.md).
 
 ```bash
 cd admin && flutter pub get && flutter run -d chrome

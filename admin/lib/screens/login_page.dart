@@ -130,7 +130,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'استخدم حساب الـ superuser الذي أنشأته عند أول تشغيل لـ ECE-screen.',
+                      'ادخل بحساب Admins (سوبر/أدمن).\n'
+                      'أول مرة: سجّل دخول بـ PocketBase superuser لإنشاء أول سوبر أدمن.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: EceTheme.sand.withValues(alpha: 0.55),
