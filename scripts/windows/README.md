@@ -44,15 +44,9 @@ Use `deploy\ece-screen-windows.bat`:
 
 Or Task Scheduler → At log on → start that bat.
 
-## 4. Remote phone admin (outside campus Wi‑Fi)
+## 4. Phone admin (same Wi‑Fi)
 
-Keep ECE-screen running, then in another PowerShell window:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\windows\remote-tunnel.ps1
-```
-
-Paste the printed `https://….trycloudflare.com` URL into the Android/iOS **ECE Admin** app server field. Details: [`admin/README.md`](../../admin/README.md).
+Install ECE Admin (Flutter) on Android/iOS. With the board running, the app **auto-discovers** PocketBase via UDP port `28090` — no IP typing. If Windows Firewall prompts, allow ECE-screen for private networks (TCP 8090 + UDP 28090). Details: [`admin/README.md`](../../admin/README.md).
 
 ## Notes
 

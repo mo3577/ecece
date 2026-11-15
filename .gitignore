@@ -39,5 +39,3 @@ Thumbs.db
 !.env.example
 
 # Cloudflare tunnel binary downloads
-deps/cloudflared
-deps/cloudflared.exe

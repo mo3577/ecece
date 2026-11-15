@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"mt-y0/ECE-screen/internal/discovery"
+
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -41,11 +43,8 @@ func InitPocketBase() *pocketbase.PocketBase {
 
 	select {
 	case <-ready:
-		if pub := os.Getenv("ECE_PUBLIC_URL"); pub != "" {
-			log.Printf("PocketBase public URL for phone admin: %s", pub)
-		} else {
-			log.Printf("PocketBase listening; for remote phone admin run scripts/windows/remote-tunnel.ps1 (or scripts/remote-tunnel.sh) and paste the https URL into ECE Admin")
-		}
+		// LAN beacon so Flutter admin can find http://<ip>:8090 without typing it.
+		_ = discovery.Start(discovery.HTTPPortFromArgs(os.Args))
 	case err := <-done:
 		if err != nil {
 			log.Fatalf("PocketBase failed to start: %v", err)

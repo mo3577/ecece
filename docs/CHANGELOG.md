@@ -6,7 +6,8 @@ _Last updated: 2026-11-15_
 Newest first. Every code or doc change gets a dated entry (`YYYY-MM-DD`).
 
 ## 2026-11-15
-- Flutter admin mobile (Android/iOS platforms) + remote access: Cloudflare quick-tunnel scripts (`scripts/windows/remote-tunnel.ps1`, `scripts/remote-tunnel.sh`) so phones can edit off-LAN via HTTPS URL; login/helper copy; `ECE_PUBLIC_URL` startup log. Docs: admin/README, operations, windows README.
+- LAN-only admin discovery: board UDP beacon `:28090` (`internal/discovery`); Flutter login auto-finds the server (no IP typing). Removed Cloudflare tunnel / off-LAN path. Docs: admin/README, operations, windows README.
+- Flutter admin mobile (Android/iOS platforms). Docs: admin/README, operations, windows README.
 - Flutter admin roles: auth collection `Admins` (`super` / `admin`) + `AdminLogs`; content API rules for Admins; super-only operators & activity log screens; `_superusers` bootstrap for first super (or `ECE_ADMIN_EMAIL`/`ECE_ADMIN_PASSWORD`). Docs: data-model, operations, admin/README.
 - Main media no longer shows side-gallery images: center uses `main_only=true` (+ all videos); side card keeps `main_only=false` images; professor portraits stay on `Professors`. Seed Media has one main + one side sample. Docs: data-model, components, architecture.
 - 4K-oriented UI scale: `ResolveZoom` (`screenH/1080`) with default `ZOOM=1.35`, larger table/professor/notice type, font atlas 128px on tall screens. Docs: architecture, operations, libraries, components.

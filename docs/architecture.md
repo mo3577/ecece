@@ -8,7 +8,7 @@ _Last updated: 2026-11-15_
 
 ```
 main goroutine (OS thread, required by raylib/OpenGL)
- ├─ db.InitPocketBase()  → goroutine runs app.Start() (serve 0.0.0.0:8090); blocks until OnServe has run EnsureSchema (creates missing collections + examples), 30 s timeout
+ ├─ db.InitPocketBase()  → goroutine runs app.Start() (serve 0.0.0.0:8090); blocks until OnServe has run EnsureSchema (creates missing collections + examples), 30 s timeout; then UDP LAN discovery beacon `:28090` for Flutter admin auto-find
  ├─ video.MpvInit()      → libmpv instance (own fullscreen window behind raylib's transparent one)
  ├─ rl.InitWindow(0,0)   → transparent, monitor-sized window
  ├─ build components, GetData(pb) once, Watch(pb) hooks

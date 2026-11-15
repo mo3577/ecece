@@ -1,6 +1,8 @@
 # ECE Admin (Flutter — Android / iOS / Web / Windows)
 
-لوحة إدارة عربية (RTL) لبيانات شاشة ECE عبر PocketBase — أدوار **سوبر أدمن** و**أدمن**، مع دعم التعديل **من خارج شبكة الكلية** عبر رابط نفق (tunnel).
+لوحة إدارة عربية (RTL) لبيانات شاشة ECE عبر PocketBase — أدوار **سوبر أدمن** و**أدمن**.
+
+التطبيق يعمل على **نفس شبكة الـ Wi‑Fi** مع جهاز الشاشة، ويبحث تلقائياً عن السيرفر (UDP) فلا تحتاج تدخل الـ IP يدوياً في العادة.
 
 ## الأدوار
 
@@ -10,68 +12,33 @@
 | إضافة/تعديل/حذف مشغّلين (`Admins`) | نعم | لا |
 | عرض سجل النشاط (`AdminLogs`) | نعم | لا |
 
-## كيف يتصل الموبايل بالشاشة؟
+## اكتشاف السيرفر
 
-التطبيق لا يخزّن البيانات داخله — يتصل بـ PocketBase على جهاز الشاشة (`:8090`).
+1. شغّل `ECE-screen` على جهاز العرض (يفتح PocketBase على `:8090` + منارة اكتشاف UDP `:28090`).
+2. وصّل الموبايل **لنفس الـ Wi‑Fi**.
+3. افتح ECE Admin — يبحث تلقائياً ويعرض عنوان السيرفر عند إيجاده.
+4. سجّل الدخول بحساب Admins.
 
-| الوضع | عنوان السيرفر في شاشة الدخول |
-|---|---|
-| نفس الـ Wi‑Fi | `http://IP-جهاز-الشاشة:8090` |
-| من البيت / بيانات الموبايل (خارج الشبكة) | رابط HTTPS من Cloudflare Tunnel مثل `https://….trycloudflare.com` |
+إذا فشل البحث (جدار ناري يمنع UDP): زر **إدخال العنوان يدوياً** → `http://IP-الشاشة:8090`.
 
-### تفعيل التعديل عن بُعد (موصى به)
-
-1. شغّل `ECE-screen` على جهاز العرض.
-2. على **نفس الجهاز** شغّل النفق:
-
-```powershell
-# Windows
-powershell -ExecutionPolicy Bypass -File scripts\windows\remote-tunnel.ps1
-```
-
-```bash
-# Linux
-./scripts/remote-tunnel.sh
-```
-
-3. انسخ الرابط `https://….trycloudflare.com` الذي يطبعه `cloudflared`.
-4. في تطبيق ECE Admin على الأندرويد/الآيفون الصق الرابط في **عنوان السيرفر** وسجّل الدخول.
-
-الرابط العشوائي يتغيّر كل مرة تشغّل فيها الـ quick tunnel. لرابط ثابت استخدم Cloudflare **named tunnel** وعيّن `ECE_PUBLIC_URL` — انظر [`docs/operations.md`](../docs/operations.md).
-
-بدائل: Tailscale/ZeroTier (الموبايل وجهاز الشاشة على شبكة افتراضية واحدة استخدم IP الـ 100.x).
+على ويندوز اسمح لتطبيق الشاشة بوارد UDP منفذ `28090` إن طلب الجدار الناري ذلك.
 
 ## بناء الموبايل
 
 ```bash
 cd admin
 flutter pub get
-
-# Android APK / App Bundle
-flutter build apk --release
-# flutter build appbundle --release
-
-# iOS (يحتاج Mac + Xcode)
-flutter build ios --release
-```
-
-تشغيل للتطوير:
-
-```bash
-flutter run -d android
-flutter run -d ios
-flutter run -d chrome
-flutter run -d windows
+flutter build apk --release          # Android
+flutter build ios --release          # iOS (يحتاج Mac + Xcode)
+flutter run -d android               # تطوير
 ```
 
 ## أول تشغيل للحسابات
 
 1. أنشئ PocketBase superuser إن لزم.
-2. ادخل به مرة واحدة → أنشئ أول **سوبر أدمن** (أو عيّن `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD` قبل إقلاع الشاشة).
+2. ادخل به مرة → أنشئ أول **سوبر أدمن** (أو `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD`).
 3. من **المشغّلون** أضف حسابات أدمن.
 
 ## أمان
 
-- فضّل دائماً رابط **HTTPS** للنفاذ من الإنترنت؛ لا تفتح المنفذ 8090 مباشرة على الراوتر بدون حماية.
-- أوقف سكربت الـ tunnel عندما لا تحتاجه.
-- كلمات مرور قوية لحسابات `Admins`.
+الوصول محلي على الشبكة فقط. استخدم كلمات مرور قوية لحسابات `Admins`.

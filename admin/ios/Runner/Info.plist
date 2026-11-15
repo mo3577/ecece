@@ -45,7 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- Allow http://LAN:8090 during setup; remote use should be HTTPS tunnel. -->
+	<!-- LAN only: HTTP to PocketBase + UDP discovery on the same Wi‑Fi. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -53,5 +53,11 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>للعثور على شاشة ECE على نفس شبكة الـ Wi‑Fi وإدارة محتواها</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ece-screen._udp</string>
+	</array>
 </dict>
 </plist>
