@@ -1,4 +1,6 @@
-/// Web / unsupported platforms: no UDP discovery.
+import 'package:http/http.dart' as http;
+
+/// Web: no UDP; still try localhost PocketBase for same-machine testing.
 class DiscoveredServer {
   const DiscoveredServer({required this.url, required this.from});
 
@@ -16,10 +18,22 @@ class DiscoveredServer {
   int get hashCode => url.hashCode;
 }
 
+bool get discoverySupported => true;
+
 Future<List<DiscoveredServer>> discoverServers({
   Duration timeout = const Duration(seconds: 3),
 }) async {
-  return const [];
+  final found = <DiscoveredServer>[];
+  for (final host in ['127.0.0.1', 'localhost']) {
+    final url = 'http://$host:8090';
+    try {
+      final res = await http
+          .get(Uri.parse('$url/api/health'))
+          .timeout(const Duration(milliseconds: 600));
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        found.add(DiscoveredServer(url: url, from: host));
+      }
+    } catch (_) {}
+  }
+  return found;
 }
-
-bool get discoverySupported => false;

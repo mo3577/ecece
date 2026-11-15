@@ -52,9 +52,21 @@ open ios/Runner.xcworkspace      # Signing: اختر Team في Xcode ثم Run
 
 ## أول تشغيل للحسابات
 
-1. أنشئ PocketBase superuser إن لزم.
-2. ادخل به مرة → أنشئ أول **سوبر أدمن** (أو `ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD`).
-3. من **المشغّلون** أضف حسابات أدمن.
+عند أول إقلاع للشاشة يُنشأ سوبر أدمن افتراضي (إن كانت مجموعة `Admins` فارغة):
+
+| البريد | كلمة المرور |
+|---|---|
+| `admin@ece.local` | `admin12345` |
+
+غيّرها من `.env` (`ECE_ADMIN_EMAIL` / `ECE_ADMIN_PASSWORD`) قبل أول تشغيل، أو من شاشة **المشغّلون** بعد الدخول. غيّر كلمة المرور فوراً على جهاز الكلية.
+
+إذا فشل الاكتشاف التلقائي على ويندوز:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\allow-firewall.ps1
+```
+
+(يفضّل تشغيله كـ Administrator مرة واحدة).
 
 ## أمان
 

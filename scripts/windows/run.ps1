@@ -9,8 +9,15 @@ if (-not (Test-Path $exe)) {
     & (Join-Path $PSScriptRoot "build.ps1")
 }
 
-# Load optional .env (KEY=VALUE lines) into the process environment.
+# Ensure .env exists (default admin credentials for first boot).
 $envFile = Join-Path $Root ".env"
+$envExample = Join-Path $Root ".env.example"
+if (-not (Test-Path $envFile) -and (Test-Path $envExample)) {
+    Copy-Item $envExample $envFile
+    Write-Host "Created .env from .env.example (default admin@ece.local / admin12345)" -ForegroundColor Yellow
+}
+
+# Load optional .env (KEY=VALUE lines) into the process environment.
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
         $line = $_.Trim()

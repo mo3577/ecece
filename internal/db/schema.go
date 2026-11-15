@@ -304,7 +304,7 @@ func buildMedia(c *core.Collection) {
 	c.Fields.Add(
 		&core.FileField{Name: "file", Required: true, MaxSelect: 1, MaxSize: 1 << 30}, // image or video
 		&core.NumberField{Name: "duration", OnlyInt: true, Min: ptr(0.0)},             // seconds (images), <=0 → 10
-		&core.BoolField{Name: "main_only"}, // true → center/main card only; false → side card under professors
+		&core.BoolField{Name: "main_only"},                                            // true → center/main card only; false → side card under professors
 		&core.NumberField{Name: "display_order", OnlyInt: true},
 	)
 }
@@ -390,18 +390,25 @@ func ensureAdminsCollection(app core.App) error {
 	return seedFirstSuperFromEnv(app, c)
 }
 
+const (
+	defaultAdminEmail = "admin@ece.local"
+	defaultAdminPass  = "admin12345"
+)
+
 func seedFirstSuperFromEnv(app core.App, c *core.Collection) error {
-	email := os.Getenv("ECE_ADMIN_EMAIL")
-	pass := os.Getenv("ECE_ADMIN_PASSWORD")
-	if email == "" || pass == "" {
-		return nil
-	}
 	total, err := app.CountRecords(c)
 	if err != nil {
 		return err
 	}
 	if total > 0 {
 		return nil
+	}
+	email := os.Getenv("ECE_ADMIN_EMAIL")
+	pass := os.Getenv("ECE_ADMIN_PASSWORD")
+	fromEnv := email != "" && pass != ""
+	if !fromEnv {
+		email = defaultAdminEmail
+		pass = defaultAdminPass
 	}
 	r := core.NewRecord(c)
 	r.SetEmail(email)
@@ -412,7 +419,11 @@ func seedFirstSuperFromEnv(app core.App, c *core.Collection) error {
 	if err := app.Save(r); err != nil {
 		return fmt.Errorf("seed first super admin: %w", err)
 	}
-	log.Printf("db: seeded first super admin %q from ECE_ADMIN_EMAIL", email)
+	if fromEnv {
+		log.Printf("db: seeded first super admin %q from ECE_ADMIN_EMAIL", email)
+	} else {
+		log.Printf("db: seeded default super admin %q / %q (override with ECE_ADMIN_EMAIL + ECE_ADMIN_PASSWORD)", email, pass)
+	}
 	return nil
 }
 

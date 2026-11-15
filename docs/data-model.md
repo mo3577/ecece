@@ -40,7 +40,7 @@ DB lives in `pb_data/` (git-ignored) next to the working directory. Admin UI: `h
 | | `action` | text | `create` / `update` / `delete` |
 | | `collection`, `record_id`, `summary` | text | what changed |
 
-**API rules:** content collections allow authenticated `Admins` CRUD. `Admins` list/create/update/delete and `AdminLogs` list require `role=super`. `AdminLogs` create is allowed for any authenticated Admin (Flutter writes on each edit). Optional seed: `ECE_ADMIN_EMAIL` + `ECE_ADMIN_PASSWORD` creates the first super when `Admins` is empty.
+**API rules:** content collections allow authenticated `Admins` CRUD. `Admins` list/create/update/delete and `AdminLogs` list require `role=super`. `AdminLogs` create is allowed for any authenticated Admin (Flutter writes on each edit). First-super seed when `Admins` is empty: `ECE_ADMIN_EMAIL` + `ECE_ADMIN_PASSWORD`, or defaults `admin@ece.local` / `admin12345`.
 
 ## Configuring classes & sections
 

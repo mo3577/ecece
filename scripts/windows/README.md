@@ -47,7 +47,15 @@ Or Task Scheduler → At log on → start that bat.
 
 ## 4. Phone admin (same Wi‑Fi)
 
-Install ECE Admin (Flutter) on Android/iOS. With the board running, the app **auto-discovers** PocketBase via UDP port `28090` — no IP typing. If Windows Firewall prompts, allow ECE-screen for private networks (TCP 8090 + UDP 28090). Details: [`admin/README.md`](../../admin/README.md).
+Default Flutter login (first boot only): `admin@ece.local` / `admin12345` (override in `.env`).
+
+Install ECE Admin on Android/iOS. With the board running, the app auto-discovers via UDP `28090`. If discovery fails, run once as Administrator:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\allow-firewall.ps1
+```
+
+That opens TCP 8090 + UDP 28090 on private networks. Details: [`admin/README.md`](../../admin/README.md).
 
 ## Notes
 

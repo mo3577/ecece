@@ -28,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _url.text = widget.session.baseUrl;
+    _email.text = 'admin@ece.local';
     WidgetsBinding.instance.addPostFrameCallback((_) => _search());
   }
 
@@ -59,7 +60,10 @@ class _LoginPageState extends State<LoginPage> {
       _searching = false;
       _servers = found;
       if (found.isEmpty) {
-        _status = 'ما لكينا سيرفر. تأكد أن الشاشة شغّالة وأن الموبايل على نفس الـ Wi‑Fi.';
+        _status =
+            'ما لكينا سيرفر. تأكد أن ECE-screen شغّال، نفس الـ Wi‑Fi، '
+            'وشغّل مرة: scripts\\\\windows\\\\allow-firewall.ps1 كـ Administrator. '
+            'أو أدخل العنوان يدوياً: http://IP-الكمبيوتر:8090';
         _showManualUrl = true;
       } else if (found.length == 1) {
         _url.text = found.first.url;

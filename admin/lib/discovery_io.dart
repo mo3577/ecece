@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:http/http.dart' as http;
 
 /// UDP LAN discovery for ECE-screen PocketBase (must match Go `internal/discovery`).
 const discoveryPort = 28090;
@@ -10,7 +13,7 @@ class DiscoveredServer {
   const DiscoveredServer({required this.url, required this.from});
 
   final String url;
-  final InternetAddress from;
+  final String from;
 
   @override
   String toString() => url;
@@ -25,54 +28,78 @@ class DiscoveredServer {
 
 bool get discoverySupported => true;
 
-/// Broadcast a probe and collect replies for [timeout].
+/// Find ECE-screen on the LAN: UDP beacon + localhost HTTP health check.
 Future<List<DiscoveredServer>> discoverServers({
-  Duration timeout = const Duration(seconds: 3),
+  Duration timeout = const Duration(seconds: 4),
 }) async {
-  RawDatagramSocket? socket;
   final found = <String, DiscoveredServer>{};
+
+  // Same-machine / emulator: PocketBase health on loopback.
+  for (final host in ['127.0.0.1', 'localhost']) {
+    final url = 'http://$host:8090';
+    if (await _pocketBaseUp(url)) {
+      found[url] = DiscoveredServer(url: url, from: host);
+    }
+  }
+
+  RawDatagramSocket? socket;
   try {
     socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     socket.broadcastEnabled = true;
     socket.readEventsEnabled = true;
 
-    final probe = discoveryProbe.codeUnits;
+    final probe = utf8.encode(discoveryProbe);
     void sendTo(InternetAddress addr) {
       try {
         socket!.send(probe, addr, discoveryPort);
       } catch (_) {}
     }
 
-    sendTo(InternetAddress('255.255.255.255'));
-    for (final b in await _subnetBroadcasts()) {
-      sendTo(b);
-    }
+    final targets = <InternetAddress>[
+      InternetAddress('255.255.255.255'),
+      ...await _subnetBroadcasts(),
+    ];
 
-    final done = Completer<void>();
     late final StreamSubscription<RawSocketEvent> sub;
     sub = socket.listen((event) {
       if (event != RawSocketEvent.read) return;
       final dg = socket!.receive();
       if (dg == null) return;
-      final text = String.fromCharCodes(dg.data).trim();
+      final text = utf8.decode(dg.data, allowMalformed: true).trim();
       if (!text.startsWith(discoveryReplyPrefix)) return;
       final url = text.substring(discoveryReplyPrefix.length).trim();
       if (url.isEmpty) return;
-      found[url] = DiscoveredServer(url: url, from: dg.address);
+      found[url] = DiscoveredServer(url: url, from: dg.address.address);
     });
 
-    Timer(timeout, () {
-      if (!done.isCompleted) done.complete();
-    });
-    await done.future;
+    // Retransmit — many APs drop the first broadcast.
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      for (final t in targets) {
+        sendTo(t);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
     await sub.cancel();
   } catch (_) {
-    // Permission / socket failure — caller shows manual fallback.
+    // Permission / socket failure — still return any localhost hits.
   } finally {
     socket?.close();
   }
+
   final list = found.values.toList()..sort((a, b) => a.url.compareTo(b.url));
   return list;
+}
+
+Future<bool> _pocketBaseUp(String base) async {
+  try {
+    final res = await http
+        .get(Uri.parse('$base/api/health'))
+        .timeout(const Duration(milliseconds: 600));
+    return res.statusCode >= 200 && res.statusCode < 300;
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<List<InternetAddress>> _subnetBroadcasts() async {
@@ -85,16 +112,15 @@ Future<List<InternetAddress>> _subnetBroadcasts() async {
       for (final addr in iface.addresses) {
         final parts = addr.address.split('.');
         if (parts.length != 4) continue;
-        // Assume /24 for typical campus Wi‑Fi (good enough for discovery).
         out.add(InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.255'));
       }
     }
   } catch (_) {}
-  // Fallbacks when interface listing is empty/restricted.
   if (out.isEmpty) {
     for (var i = 0; i < 8; i++) {
       out.add(InternetAddress('192.168.$i.255'));
     }
+    out.add(InternetAddress('10.0.0.255'));
   }
   return out;
 }
